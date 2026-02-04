@@ -105,14 +105,7 @@
               @dragleave="handleDragLeave(date)"
             />
             
-            <!-- Today Indicator -->
-            <div 
-              v-if="todayPosition !== null"
-              class="today-line"
-              :style="{ left: `${todayPosition}px` }"
-            >
-              <span class="today-label">TODAY</span>
-            </div>
+
             
             <!-- Drop Indicator -->
             <div v-if="dragOverDate && draggedTask" class="drop-preview">
@@ -341,11 +334,7 @@ const dateColumns = computed(() => {
 
 const totalWidth = computed(() => dateColumns.value.length * columnWidth.value)
 
-const todayPosition = computed(() => {
-  const todayCol = dateColumns.value.find(col => col.key === todayKey.value)
-  if (!todayCol) return null
-  return todayCol.index * columnWidth.value + columnWidth.value / 2
-})
+
 
 const dropPreviewDate = computed(() => {
   if (!dragOverDate.value) return ''
@@ -420,9 +409,11 @@ function getTaskBarStyle(task) {
   const pos = getTaskPosition(task)
   if (!pos) return {}
   
+  const width = pos.duration * columnWidth.value - 8
   return {
     left: `${pos.startIndex * columnWidth.value + 4}px`,
-    width: `${pos.duration * columnWidth.value - 8}px`
+    width: `${width}px`,
+    minWidth: `${width}px`
   }
 }
 
@@ -540,9 +531,11 @@ function startResize(e, task, side) {
 function handleScroll() {}
 
 function scrollToToday() {
-  if (todayPosition.value && gridRef.value) {
+  const todayCol = dateColumns.value.find(col => col.key === todayKey.value)
+  if (todayCol && gridRef.value) {
+    const position = todayCol.index * columnWidth.value + columnWidth.value / 2
     const containerWidth = gridRef.value.clientWidth
-    gridRef.value.scrollLeft = todayPosition.value - containerWidth / 2
+    gridRef.value.scrollLeft = position - containerWidth / 2
   }
 }
 
@@ -783,7 +776,9 @@ onMounted(() => scrollToToday())
 
 .grid-line.is-today {
   border-right-color: var(--primary-500);
-  border-right-width: 2px;
+  border-right-width: 1px;
+  border-left: 1px solid var(--primary-500);
+  background: rgba(139, 92, 246, 0.05);
 }
 
 .grid-line.is-weekend {
@@ -794,28 +789,7 @@ onMounted(() => scrollToToday())
   background: rgba(139, 92, 246, 0.2);
 }
 
-.today-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--primary-500);
-  z-index: 15;
-  pointer-events: none;
-}
 
-.today-label {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--primary-500);
-  color: white;
-  font-size: 0.625rem;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-}
 
 /* Drop Preview */
 .drop-preview {
