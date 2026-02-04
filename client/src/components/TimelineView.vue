@@ -644,7 +644,7 @@ onMounted(() => scrollToToday())
 }
 
 .sidebar-item.selected {
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
 }
 
 .task-info {
@@ -724,11 +724,11 @@ onMounted(() => scrollToToday())
 }
 
 .date-cell.is-today {
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
 }
 
 .date-cell.is-weekend {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-muted, rgba(0, 0, 0, 0.2));
 }
 
 .date-day {
@@ -778,15 +778,15 @@ onMounted(() => scrollToToday())
   border-right-color: var(--primary-500);
   border-right-width: 1px;
   border-left: 1px solid var(--primary-500);
-  background: rgba(139, 92, 246, 0.05);
+  background: var(--primary-500-alpha-05, rgba(139, 92, 246, 0.05));
 }
 
 .grid-line.is-weekend {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--bg-subtle, rgba(0, 0, 0, 0.1));
 }
 
 .grid-line.active {
-  background: rgba(139, 92, 246, 0.2);
+  background: var(--primary-500-alpha-20, rgba(139, 92, 246, 0.2));
 }
 
 
@@ -806,7 +806,7 @@ onMounted(() => scrollToToday())
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(139, 92, 246, 0.3);
+  background: var(--primary-500-alpha-30, rgba(139, 92, 246, 0.3));
   border: 2px dashed var(--primary-500);
   display: flex;
   align-items: flex-start;
@@ -870,23 +870,23 @@ onMounted(() => scrollToToday())
 }
 
 .task-bar.urgent {
-  background: linear-gradient(135deg, rgba(244, 63, 94, 0.9), rgba(244, 63, 94, 0.7));
-  border-color: rgba(244, 63, 94, 0.5);
+  background: linear-gradient(135deg, var(--accent-rose-alpha-90, rgba(244, 63, 94, 0.9)), var(--accent-rose-alpha-70, rgba(244, 63, 94, 0.7)));
+  border-color: var(--accent-rose-alpha-50, rgba(244, 63, 94, 0.5));
 }
 
 .task-bar.high {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(245, 158, 11, 0.7));
-  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, var(--accent-amber-alpha-90, rgba(245, 158, 11, 0.9)), var(--accent-amber-alpha-70, rgba(245, 158, 11, 0.7)));
+  border-color: var(--accent-amber-alpha-50, rgba(245, 158, 11, 0.5));
 }
 
 .task-bar.medium {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(139, 92, 246, 0.7));
-  border-color: rgba(139, 92, 246, 0.5);
+  background: linear-gradient(135deg, var(--primary-500-alpha-90, rgba(139, 92, 246, 0.9)), var(--primary-500-alpha-70, rgba(139, 92, 246, 0.7)));
+  border-color: var(--primary-500-alpha-50, rgba(139, 92, 246, 0.5));
 }
 
 .task-bar.low {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(16, 185, 129, 0.7));
-  border-color: rgba(16, 185, 129, 0.5);
+  background: linear-gradient(135deg, var(--accent-emerald-alpha-90, rgba(16, 185, 129, 0.9)), var(--accent-emerald-alpha-70, rgba(16, 185, 129, 0.7)));
+  border-color: var(--accent-emerald-alpha-50, rgba(16, 185, 129, 0.5));
 }
 
 .task-bar.dragging {
@@ -911,7 +911,7 @@ onMounted(() => scrollToToday())
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px var(--text-shadow, rgba(0, 0, 0, 0.3));
 }
 
 .bar-avatars {
@@ -923,7 +923,7 @@ onMounted(() => scrollToToday())
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--white-alpha-30, rgba(255, 255, 255, 0.3));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -931,7 +931,7 @@ onMounted(() => scrollToToday())
   font-weight: 600;
   color: white;
   margin-left: -6px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--white-alpha-30, rgba(255, 255, 255, 0.3));
 }
 
 .bar-avatar:first-child {
@@ -968,7 +968,7 @@ onMounted(() => scrollToToday())
   transform: translate(-50%, -50%);
   width: 3px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--white-alpha-50, rgba(255, 255, 255, 0.5));
   border-radius: 2px;
 }
 

@@ -23,7 +23,7 @@
         <!-- Stats Cards -->
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">
+            <div class="stat-icon" style="background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15)); color: var(--primary-400);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
@@ -38,7 +38,7 @@
           </div>
           
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee;">
+            <div class="stat-icon" style="background: var(--accent-cyan-alpha-15, rgba(6, 182, 212, 0.15)); color: var(--accent-cyan);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="7" height="7"/>
                 <rect x="14" y="3" width="7" height="7"/>
@@ -53,7 +53,7 @@
           </div>
           
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+            <div class="stat-icon" style="background: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15)); color: var(--accent-emerald);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
@@ -66,7 +66,7 @@
           </div>
           
           <router-link to="/calendar" class="stat-card stat-link">
-            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+            <div class="stat-icon" style="background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15)); color: var(--accent-amber);">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -520,7 +520,7 @@ function generateColor(str) {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.6));
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;

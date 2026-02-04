@@ -232,9 +232,9 @@ function generateColor(str) {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.1));
+  background: linear-gradient(135deg, var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15)), var(--accent-cyan-alpha-10, rgba(6, 182, 212, 0.1)));
   color: var(--text-primary);
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--primary-500-alpha-20, rgba(139, 92, 246, 0.2));
 }
 
 .nav-item.active svg {
@@ -401,7 +401,7 @@ function generateColor(str) {
 }
 
 .dropdown-item.danger:hover {
-  background: rgba(244, 63, 94, 0.1);
+  background: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
 }
 
 .dropdown-divider {

@@ -895,7 +895,7 @@ async function handleColumnDrop(e, targetColumnId) {
 }
 
 .task-row.selected {
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
 }
 
 .col-status {
@@ -1014,8 +1014,8 @@ async function handleColumnDrop(e, targetColumnId) {
 
 .board-column.drag-over {
   border-color: var(--primary-500);
-  background: rgba(139, 92, 246, 0.05);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+  background: var(--primary-500-alpha-05, rgba(139, 92, 246, 0.05));
+  box-shadow: 0 0 0 2px var(--primary-500-alpha-30, rgba(139, 92, 246, 0.3));
 }
 
 .column-header {
@@ -1075,7 +1075,7 @@ async function handleColumnDrop(e, targetColumnId) {
 
 .board-card.selected {
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 0 2px var(--primary-500-alpha-30, rgba(139, 92, 246, 0.3));
 }
 
 .board-card.dragging {
@@ -1116,7 +1116,7 @@ async function handleColumnDrop(e, targetColumnId) {
 }
 
 .due-badge.overdue {
-  background: rgba(244, 63, 94, 0.15);
+  background: var(--accent-rose-alpha-15, rgba(244, 63, 94, 0.15));
   color: var(--accent-rose);
 }
 
@@ -1176,7 +1176,7 @@ async function handleColumnDrop(e, targetColumnId) {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.6));
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -1249,7 +1249,7 @@ async function handleColumnDrop(e, targetColumnId) {
 .panel-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay-bg-light, rgba(0, 0, 0, 0.4));
   backdrop-filter: blur(2px);
   z-index: 150; /* Below panel (z-index: 200 in TaskPanel) */
 }

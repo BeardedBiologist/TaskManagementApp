@@ -80,7 +80,7 @@
                   @click="openProject(project)"
                   @mouseenter="selectedIndex = getIndex('project', idx)"
                 >
-                  <div class="icon" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa;">
+                  <div class="icon" style="background: var(--primary-500-alpha-20, rgba(139, 92, 246, 0.2)); color: var(--primary-400);">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <rect x="3" y="3" width="7" height="7"/>
                       <rect x="14" y="3" width="7" height="7"/>
@@ -169,7 +169,7 @@ const quickActions = [
     title: 'Create New Task',
     description: 'Add a task to the current project',
     icon: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
-    color: '#10b981',
+    color: 'var(--accent-emerald)',
     shortcut: 'N',
     action: () => {
       // Emit event to parent or use global state
@@ -181,7 +181,7 @@ const quickActions = [
     title: 'Create New Workspace',
     description: 'Start a new team workspace',
     icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
-    color: '#8b5cf6',
+    color: 'var(--primary-500)',
     action: () => router.push('/workspaces')
   },
   {
@@ -189,7 +189,7 @@ const quickActions = [
     title: 'Go to Calendar',
     description: 'View your schedule',
     icon: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-    color: '#f59e0b',
+    color: 'var(--accent-amber)',
     shortcut: 'C',
     action: () => router.push('/calendar')
   },
@@ -198,7 +198,7 @@ const quickActions = [
     title: 'Go to Dashboard',
     description: 'Back to home',
     icon: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
-    color: '#06b6d4',
+    color: 'var(--accent-cyan)',
     shortcut: 'D',
     action: () => router.push('/')
   }
@@ -378,7 +378,7 @@ function formatDueDate(date) {
 }
 
 function generateColor(str) {
-  const colors = ['#8b5cf6', '#06b6d4', '#ec4899', '#f59e0b', '#10b981']
+  const colors = ['var(--primary-500)', 'var(--accent-cyan)', 'var(--accent-pink)', 'var(--accent-amber)', 'var(--accent-emerald)']
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash)
@@ -391,7 +391,7 @@ function generateColor(str) {
 .command-palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.7));
   backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-start;
@@ -406,7 +406,7 @@ function generateColor(str) {
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(139, 92, 246, 0.1);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
   overflow: hidden;
 }
 
@@ -503,22 +503,22 @@ function generateColor(str) {
 }
 
 .result-item .icon.urgent {
-  background: rgba(244, 63, 94, 0.15);
+  background: var(--accent-rose-alpha-15, rgba(244, 63, 94, 0.15));
   color: var(--accent-rose);
 }
 
 .result-item .icon.high {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15));
   color: var(--accent-amber);
 }
 
 .result-item .icon.medium {
-  background: rgba(139, 92, 246, 0.15);
+  background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
 }
 
 .result-item .icon.low {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15));
   color: var(--accent-emerald);
 }
 

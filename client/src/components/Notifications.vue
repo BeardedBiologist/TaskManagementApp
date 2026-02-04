@@ -288,11 +288,11 @@ function formatTime(date) {
 }
 
 .notification-item.unread {
-  background: rgba(139, 92, 246, 0.05);
+  background: var(--primary-500-alpha-05, rgba(139, 92, 246, 0.05));
 }
 
 .notification-item.unread:hover {
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
 }
 
 .notification-icon {
@@ -311,17 +311,17 @@ function formatTime(date) {
 }
 
 .notification-icon.assignment {
-  background: rgba(139, 92, 246, 0.15);
+  background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
 }
 
 .notification-icon.due {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15));
   color: var(--accent-amber);
 }
 
 .notification-icon.mention {
-  background: rgba(6, 182, 212, 0.15);
+  background: var(--accent-cyan-alpha-15, rgba(6, 182, 212, 0.15));
   color: var(--accent-cyan);
 }
 

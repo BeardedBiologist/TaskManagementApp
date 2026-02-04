@@ -20,7 +20,9 @@ router.get('/me', authenticate, async (req, res, next) => {
 router.put('/me', authenticate, [
   body('firstName').optional().trim().notEmpty(),
   body('lastName').optional().trim().notEmpty(),
-  body('timezone').optional().trim().notEmpty()
+  body('timezone').optional().trim().notEmpty(),
+  body('theme').optional().trim().isIn(['default', 'ocean', 'forest', 'sunset']),
+  body('darkMode').optional().isBoolean()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -28,7 +30,7 @@ router.put('/me', authenticate, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { firstName, lastName, timezone } = req.body;
+    const { firstName, lastName, timezone, theme, darkMode } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -40,9 +42,19 @@ router.put('/me', authenticate, [
       user.name.last = lastName || user.name.last;
     }
 
+    // Update settings
+    user.settings = user.settings || {};
+    
     if (timezone) {
-      user.settings = user.settings || {};
       user.settings.timezone = timezone;
+    }
+    
+    if (theme) {
+      user.settings.theme = theme;
+    }
+    
+    if (darkMode !== undefined) {
+      user.settings.darkMode = darkMode;
     }
 
     await user.save();

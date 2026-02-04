@@ -193,8 +193,8 @@ async function handleLogin() {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: rgba(244, 63, 94, 0.1);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  background: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
+  border: 1px solid var(--error-border, rgba(244, 63, 94, 0.2));
   border-radius: var(--radius-md);
   color: var(--accent-rose);
   font-size: 0.875rem;
@@ -209,8 +209,8 @@ async function handleLogin() {
 .spinner-sm {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 2px solid var(--spinner-track, rgba(255, 255, 255, 0.3));
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
