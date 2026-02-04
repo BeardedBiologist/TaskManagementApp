@@ -210,40 +210,46 @@ async function deleteWorkspace() {
 .page-header h1 {
   font-size: 1.875rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .workspaces-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .workspace-card {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: all 0.2s ease;
+}
+
+.workspace-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .workspace-content {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .workspace-avatar {
   width: 3rem;
   height: 3rem;
-  border-radius: 0.75rem;
-  background-color: #3b82f6;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
   color: white;
   display: flex;
   align-items: center;
@@ -255,27 +261,27 @@ async function deleteWorkspace() {
 .workspace-details h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .workspace-details p {
   font-size: 0.875rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
 }
 
 .workspace-meta {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   font-size: 0.75rem;
-  color: #9ca3af;
-  margin-top: 0.5rem;
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
 }
 
 .workspace-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .empty-state {
@@ -310,11 +316,13 @@ async function deleteWorkspace() {
 }
 
 .modal {
-  background: white;
-  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 400px;
   margin: 1rem;
+  box-shadow: var(--shadow-lg);
 }
 
 .modal-sm {
@@ -325,8 +333,8 @@ async function deleteWorkspace() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-header h2 {
@@ -335,23 +343,23 @@ async function deleteWorkspace() {
 }
 
 .modal form {
-  padding: 1.5rem;
+  padding: var(--space-6);
 }
 
 .modal-body {
-  padding: 1.5rem;
+  padding: var(--space-6);
 }
 
 .modal-body p {
-  color: #4b5563;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-subtle);
 }
 </style>
