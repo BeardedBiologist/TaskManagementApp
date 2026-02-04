@@ -50,6 +50,15 @@
               <input v-model="profile.email" type="email" class="form-input" disabled />
               <span class="form-hint">Email cannot be changed</span>
             </div>
+            <div class="form-group">
+              <label class="form-label">Time Zone</label>
+              <select v-model="profile.timezone" class="form-input">
+                <option v-for="tz in timezones" :key="tz" :value="tz">
+                  {{ tz }}
+                </option>
+              </select>
+              <span class="form-hint">Used to render dates and “today/tomorrow” correctly</span>
+            </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" :disabled="updating">
                 {{ updating ? 'Saving...' : 'Save Changes' }}
@@ -81,6 +90,7 @@ import Layout from '../components/Layout.vue'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSocketStore } from '../stores/socket'
+import { getBrowserTimeZone } from '../utils/helpers'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -91,7 +101,8 @@ const updating = ref(false)
 const profile = ref({
   firstName: '',
   lastName: '',
-  email: ''
+  email: '',
+  timezone: ''
 })
 
 const totalProjects = computed(() => {
@@ -108,16 +119,40 @@ onMounted(() => {
     profile.value = {
       firstName: authStore.user.name.first,
       lastName: authStore.user.name.last,
-      email: authStore.user.email
+      email: authStore.user.email,
+      timezone: authStore.user.settings?.timezone || getBrowserTimeZone()
     }
   }
 })
 
+const timezones = computed(() => {
+  if (typeof Intl.supportedValuesOf === 'function') {
+    return Intl.supportedValuesOf('timeZone')
+  }
+  return [
+    'UTC',
+    'Europe/Oslo',
+    'Europe/London',
+    'Europe/Berlin',
+    'America/New_York',
+    'America/Chicago',
+    'America/Los_Angeles',
+    'Asia/Tokyo',
+    'Australia/Sydney'
+  ]
+})
+
 async function updateProfile() {
   updating.value = true
-  // This would need an API endpoint to update profile
-  await new Promise(resolve => setTimeout(resolve, 500))
-  updating.value = false
+  try {
+    await authStore.updateProfile({
+      firstName: profile.value.firstName,
+      lastName: profile.value.lastName,
+      timezone: profile.value.timezone
+    })
+  } finally {
+    updating.value = false
+  }
 }
 
 function handleLogout() {

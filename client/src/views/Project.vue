@@ -195,8 +195,8 @@
                 </div>
                 
                 <div class="col-due">
-                  <span :class="{ overdue: isOverdue(task.dueDate) }">
-                    {{ task.dueDate ? formatDate(task.dueDate) : '—' }}
+                  <span :class="{ overdue: isOverdue(task.dueDate, timeZone) }">
+                    {{ task.dueDate ? formatDate(task.dueDate, timeZone) : '—' }}
                   </span>
                 </div>
               </div>
@@ -235,8 +235,8 @@
                 >
                   <div class="card-top">
                     <span class="priority-indicator" :class="task.priority"></span>
-                    <span v-if="task.dueDate" class="due-badge" :class="{ overdue: isOverdue(task.dueDate) }">
-                      {{ formatShortDate(task.dueDate) }}
+                    <span v-if="task.dueDate" class="due-badge" :class="{ overdue: isOverdue(task.dueDate, timeZone) }">
+                      {{ formatShortDate(task.dueDate, timeZone) }}
                     </span>
                   </div>
                   <p class="card-title">{{ task.title }}</p>
@@ -351,11 +351,13 @@ import TaskPanel from '../components/TaskPanel.vue'
 import TimelineView from '../components/TimelineView.vue'
 import { useProjectStore } from '../stores/project'
 import { useSocketStore } from '../stores/socket'
-import { formatDate, getInitials, isOverdue } from '../utils/helpers'
+import { useAuthStore } from '../stores/auth'
+import { formatDate, formatShortDate, getInitials, isOverdue } from '../utils/helpers'
 
 const route = useRoute()
 const projectStore = useProjectStore()
 const socketStore = useSocketStore()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const currentView = ref('list')
@@ -397,6 +399,7 @@ const newTask = ref({
 const workspaceId = computed(() => projectStore.currentProject?.workspace?._id)
 
 const columns = computed(() => projectStore.currentProject?.columns || [])
+const timeZone = computed(() => authStore.userTimezone)
 
 const projectColor = computed(() => {
   const colors = ['#8b5cf6', '#06b6d4', '#ec4899', '#f59e0b', '#10b981']
@@ -448,12 +451,6 @@ function getColumnName(columnId) {
 
 function getColumnColor(columnId) {
   return columns.value.find(c => c.id === columnId)?.color || '#8b5cf6'
-}
-
-function formatShortDate(date) {
-  if (!date) return ''
-  const d = new Date(date)
-  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 onMounted(async () => {

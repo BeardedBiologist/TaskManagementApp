@@ -6,6 +6,21 @@ import Task from '../models/Task.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
+const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatDueDateOutput(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && DATE_KEY_REGEX.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function sanitizeTask(task) {
+  const obj = typeof task.toObject === 'function' ? task.toObject() : { ...task };
+  obj.dueDate = formatDueDateOutput(obj.dueDate);
+  return obj;
+}
 
 // Get all projects
 router.get('/', authenticate, async (req, res, next) => {
@@ -103,7 +118,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
       .populate('createdBy', 'name email avatar')
       .sort({ order: 1 });
 
-    res.json({ project, tasks });
+    res.json({ project, tasks: tasks.map(sanitizeTask) });
   } catch (error) {
     next(error);
   }

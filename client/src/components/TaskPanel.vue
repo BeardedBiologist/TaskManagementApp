@@ -366,7 +366,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { getInitials, formatTimeAgo } from '../utils/helpers'
+import { getInitials, formatTimeAgo, normalizeDateKey } from '../utils/helpers'
 import api from '../utils/api'
 
 const props = defineProps({
@@ -390,7 +390,7 @@ const editedTitle = ref(props.task.title)
 const editedDescription = ref(props.task.description || '')
 const editedColumnId = ref(props.task.columnId)
 const editedPriority = ref(props.task.priority)
-const editedDueDate = ref(props.task.dueDate ? props.task.dueDate.split('T')[0] : '')
+const editedDueDate = ref(normalizeDateKey(props.task.dueDate))
 const newSubtask = ref('')
 const newComment = ref('')
 
