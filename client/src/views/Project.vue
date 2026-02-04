@@ -265,6 +265,15 @@
       </template>
 
       <!-- Task Detail Slide-out Panel -->
+      <!-- Task Detail Slide-out Panel -->
+      <Transition name="fade">
+        <div 
+          v-if="selectedTask" 
+          class="panel-overlay"
+          @click="selectedTask = null"
+        ></div>
+      </Transition>
+
       <Transition name="slide">
         <TaskPanel
           v-if="selectedTask"
@@ -1192,5 +1201,24 @@ async function handleColumnDrop(e, targetColumnId) {
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
+}
+
+/* Panel Overlay */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 150; /* Below panel (z-index: 200 in TaskPanel) */
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
