@@ -1,19 +1,27 @@
 <template>
   <router-view />
+  <CommandPalette ref="commandPaletteRef" />
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useSocketStore } from './stores/socket'
+import CommandPalette from './components/CommandPalette.vue'
 
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
+const commandPaletteRef = ref(null)
 
 onMounted(() => {
   authStore.initializeAuth()
   if (authStore.isAuthenticated) {
     socketStore.connect()
+  }
+  
+  // Expose toggle function globally for keyboard shortcut
+  window.toggleCommandPalette = () => {
+    commandPaletteRef.value?.toggle()
   }
 })
 </script>

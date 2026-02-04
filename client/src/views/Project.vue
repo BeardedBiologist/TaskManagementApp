@@ -146,57 +146,59 @@
               <span class="col-due">Due Date</span>
             </div>
             
-            <div 
-              v-for="task in filteredTasks" 
-              :key="task._id"
-              class="task-row"
-              :class="{ selected: selectedTask?._id === task._id }"
-              @click="selectTask(task)"
-            >
-              <div class="col-status">
-                <span class="status-pill" :style="{ background: getColumnColor(task.columnId) + '20', color: getColumnColor(task.columnId) }">
-                  {{ getColumnName(task.columnId) }}
-                </span>
-              </div>
-              
-              <div class="col-task">
-                <span class="task-title">{{ task.title }}</span>
-                <div v-if="task.labels?.length" class="task-labels">
-                  <span 
-                    v-for="label in task.labels.slice(0, 2)" 
-                    :key="label.name"
-                    class="mini-label"
-                    :style="{ background: label.color }"
-                  >
-                    {{ label.name }}
+            <div class="list-content">
+              <div 
+                v-for="task in filteredTasks" 
+                :key="task._id"
+                class="task-row"
+                :class="{ selected: selectedTask?._id === task._id }"
+                @click="selectTask(task)"
+              >
+                <div class="col-status">
+                  <span class="status-pill" :style="{ background: getColumnColor(task.columnId) + '20', color: getColumnColor(task.columnId) }">
+                    {{ getColumnName(task.columnId) }}
                   </span>
                 </div>
-              </div>
-              
-              <div class="col-assignee">
-                <div v-if="task.assignees?.length" class="assignee-group">
-                  <div 
-                    v-for="assignee in task.assignees.slice(0, 2)" 
-                    :key="assignee._id"
-                    class="avatar avatar-sm"
-                    :title="assignee.name.first + ' ' + assignee.name.last"
-                  >
-                    {{ getInitials(assignee.name.first, assignee.name.last) }}
+                
+                <div class="col-task">
+                  <span class="task-title">{{ task.title }}</span>
+                  <div v-if="task.labels?.length" class="task-labels">
+                    <span 
+                      v-for="label in task.labels.slice(0, 2)" 
+                      :key="label.name"
+                      class="mini-label"
+                      :style="{ background: label.color }"
+                    >
+                      {{ label.name }}
+                    </span>
                   </div>
-                  <span v-if="task.assignees.length > 2" class="more">+{{ task.assignees.length - 2 }}</span>
                 </div>
-                <span v-else class="unassigned">—</span>
-              </div>
-              
-              <div class="col-priority">
-                <span class="priority-dot" :class="task.priority"></span>
-                <span class="priority-text">{{ task.priority }}</span>
-              </div>
-              
-              <div class="col-due">
-                <span :class="{ overdue: isOverdue(task.dueDate) }">
-                  {{ task.dueDate ? formatDate(task.dueDate) : '—' }}
-                </span>
+                
+                <div class="col-assignee">
+                  <div v-if="task.assignees?.length" class="assignee-group">
+                    <div 
+                      v-for="assignee in task.assignees.slice(0, 2)" 
+                      :key="assignee._id"
+                      class="avatar avatar-sm"
+                      :title="assignee.name.first + ' ' + assignee.name.last"
+                    >
+                      {{ getInitials(assignee.name.first, assignee.name.last) }}
+                    </div>
+                    <span v-if="task.assignees.length > 2" class="more">+{{ task.assignees.length - 2 }}</span>
+                  </div>
+                  <span v-else class="unassigned">—</span>
+                </div>
+                
+                <div class="col-priority">
+                  <span class="priority-dot" :class="task.priority"></span>
+                  <span class="priority-text">{{ task.priority }}</span>
+                </div>
+                
+                <div class="col-due">
+                  <span :class="{ overdue: isOverdue(task.dueDate) }">
+                    {{ task.dueDate ? formatDate(task.dueDate) : '—' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -261,10 +263,19 @@
               </button>
             </div>
           </div>
+
+          <!-- Timeline View -->
+          <TimelineView
+            v-else-if="currentView === 'timeline'"
+            :tasks="filteredTasks"
+            :columns="columns"
+            :selected-task="selectedTask"
+            @select-task="selectTask"
+            @update-task="updateTask"
+          />
         </div>
       </template>
 
-      <!-- Task Detail Slide-out Panel -->
       <!-- Task Detail Slide-out Panel -->
       <Transition name="fade">
         <div 
@@ -337,6 +348,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import TaskPanel from '../components/TaskPanel.vue'
+import TimelineView from '../components/TimelineView.vue'
 import { useProjectStore } from '../stores/project'
 import { useSocketStore } from '../stores/socket'
 import { formatDate, getInitials, isOverdue } from '../utils/helpers'
@@ -368,6 +380,11 @@ const views = [
     id: 'board', 
     label: 'Board',
     icon: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'
+  },
+  { 
+    id: 'timeline', 
+    label: 'Timeline',
+    icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 12h8"/>'
   }
 ]
 
@@ -553,12 +570,15 @@ async function handleColumnDrop(e, targetColumnId) {
 
 <style scoped>
 .project-container {
-  min-height: 100vh;
-  padding: var(--space-6) var(--space-8);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .project-header {
-  margin-bottom: var(--space-8);
+  flex-shrink: 0;
+  padding: var(--space-6) var(--space-8) 0;
 }
 
 .header-main {
@@ -753,6 +773,7 @@ async function handleColumnDrop(e, targetColumnId) {
 
 .progress-section {
   margin-top: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .progress-stats {
@@ -787,7 +808,12 @@ async function handleColumnDrop(e, targetColumnId) {
 }
 
 .project-content {
-  min-height: 400px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; 
+  padding: 0 var(--space-8) var(--space-6);
+  overflow: hidden;
 }
 
 /* Empty State */
@@ -798,6 +824,7 @@ async function handleColumnDrop(e, targetColumnId) {
   justify-content: center;
   padding: var(--space-16);
   text-align: center;
+  flex: 1;
 }
 
 .empty-illustration {
@@ -826,6 +853,9 @@ async function handleColumnDrop(e, targetColumnId) {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .list-header {
@@ -840,6 +870,12 @@ async function handleColumnDrop(e, targetColumnId) {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.list-content {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .task-row {
@@ -963,7 +999,8 @@ async function handleColumnDrop(e, targetColumnId) {
   display: flex;
   gap: var(--space-4);
   overflow-x: auto;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  height: 100%;
 }
 
 .board-column {
@@ -974,7 +1011,7 @@ async function handleColumnDrop(e, targetColumnId) {
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 320px);
+  height: 100%;
   transition: all 0.2s ease;
 }
 
@@ -990,6 +1027,7 @@ async function handleColumnDrop(e, targetColumnId) {
   align-items: center;
   padding: var(--space-4);
   border-bottom: 2px solid;
+  flex-shrink: 0;
 }
 
 .column-title {
@@ -1072,6 +1110,12 @@ async function handleColumnDrop(e, targetColumnId) {
   background: var(--bg-elevated);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.due-badge:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .due-badge.overdue {
@@ -1122,6 +1166,7 @@ async function handleColumnDrop(e, targetColumnId) {
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .add-card-btn:hover {

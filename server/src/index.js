@@ -14,6 +14,7 @@ import workspaceRoutes from './routes/workspaces.js';
 import projectRoutes from './routes/projects.js';
 import taskRoutes from './routes/tasks.js';
 import userRoutes from './routes/users.js';
+import uploadRoutes from './routes/uploads.js';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

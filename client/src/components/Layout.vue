@@ -62,6 +62,10 @@
       </div>
 
       <div class="sidebar-footer">
+        <div class="header-actions">
+          <Notifications />
+        </div>
+        
         <button class="user-menu" @click="showUserMenu = !showUserMenu">
           <div class="avatar">{{ authStore.userInitials }}</div>
           <div class="user-info">
@@ -107,6 +111,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSocketStore } from '../stores/socket'
+import Notifications from './Notifications.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -293,6 +298,14 @@ function generateColor(str) {
   padding: var(--space-4);
   border-top: 1px solid var(--border-subtle);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .user-menu {
