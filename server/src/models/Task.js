@@ -25,10 +25,16 @@ const taskSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Task can belong to either a Project OR a Page
   project: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
-    required: true
+    default: null
+  },
+  page: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Page',
+    default: null
   },
   workspace: {
     type: mongoose.Schema.Types.ObjectId,
@@ -37,7 +43,7 @@ const taskSchema = new mongoose.Schema({
   },
   columnId: {
     type: String,
-    required: true
+    default: 'todo'
   },
   order: {
     type: Number,

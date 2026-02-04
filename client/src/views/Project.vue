@@ -67,7 +67,7 @@
                 :key="view.id"
                 class="tab-btn"
                 :class="{ active: currentView === view.id }"
-                @click="currentView = view.id"
+                @click="setView(view.id)"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="view.icon"/>
                 {{ view.label }}
@@ -344,8 +344,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import TimelineView from '../components/TimelineView.vue'
@@ -355,6 +355,7 @@ import { useAuthStore } from '../stores/auth'
 import { formatDate, formatShortDate, getInitials, isOverdue } from '../utils/helpers'
 
 const route = useRoute()
+const router = useRouter()
 const projectStore = useProjectStore()
 const socketStore = useSocketStore()
 const authStore = useAuthStore()
@@ -454,6 +455,10 @@ function getColumnColor(columnId) {
 }
 
 onMounted(async () => {
+  // Set view from URL query if present
+  if (route.query.view && ['list', 'board', 'timeline'].includes(route.query.view)) {
+    currentView.value = route.query.view
+  }
   await projectStore.fetchProject(route.params.id)
   socketStore.joinProject(route.params.id)
   setupSocketListeners()
@@ -464,6 +469,19 @@ onUnmounted(() => {
   socketStore.leaveProject(route.params.id)
   removeSocketListeners()
 })
+
+// Watch for view changes in URL
+watch(() => route.query.view, (newView) => {
+  if (newView && ['list', 'board', 'timeline'].includes(newView)) {
+    currentView.value = newView
+  }
+})
+
+function setView(viewId) {
+  currentView.value = viewId
+  // Update URL without reloading
+  router.replace({ query: { ...route.query, view: viewId } })
+}
 
 function setupSocketListeners() {
   socketStore.on('task-created', (task) => projectStore.addTaskToState(task))

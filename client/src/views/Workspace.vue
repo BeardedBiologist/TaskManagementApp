@@ -238,12 +238,31 @@ onUnmounted(() => {
 
 watch(() => route.params.id, loadWorkspace)
 
+// Check if ID is a valid MongoDB ObjectId
+function isValidObjectId(id) {
+  return id && /^[0-9a-fA-F]{24}$/.test(id)
+}
+
 async function loadWorkspace() {
+  const workspaceId = route.params.id
+  
+  // Check if ID is valid
+  if (!isValidObjectId(workspaceId)) {
+    error.value = 'Invalid workspace ID'
+    loading.value = false
+    // Redirect to workspaces list after a short delay
+    setTimeout(() => {
+      router.push('/workspaces')
+    }, 1500)
+    return
+  }
+  
   loading.value = true
+  error.value = null
   try {
-    await workspaceStore.fetchWorkspace(route.params.id)
-    await projectStore.fetchProjects(route.params.id)
-    socketStore.joinWorkspace(route.params.id)
+    await workspaceStore.fetchWorkspace(workspaceId)
+    await projectStore.fetchProjects(workspaceId)
+    socketStore.joinWorkspace(workspaceId)
     
     // Initialize settings form
     if (workspaceStore.currentWorkspace) {
@@ -252,6 +271,8 @@ async function loadWorkspace() {
         description: workspaceStore.currentWorkspace.description || ''
       }
     }
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to load workspace'
   } finally {
     loading.value = false
   }
