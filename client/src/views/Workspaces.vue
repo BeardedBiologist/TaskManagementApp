@@ -15,26 +15,32 @@
         <div class="spinner"></div>
       </div>
 
-      <div v-else-if="workspaceStore.workspaces.length === 0" class="empty-state card">
+      <div
+        v-else-if="workspaceStore.workspaces.length === 0"
+        class="empty-state card"
+      >
         <div class="empty-icon">🏢</div>
         <h3>No workspaces yet</h3>
-        <p>Create your first workspace to start collaborating with your team.</p>
+        <p>
+          Create your first workspace to start collaborating with your team.
+        </p>
         <button class="btn btn-primary" @click="showCreateModal = true">
           Create Workspace
         </button>
       </div>
 
       <div v-else class="workspaces-list">
-        <div 
-          v-for="workspace in workspaceStore.workspaces" 
+        <div
+          v-for="workspace in workspaceStore.workspaces"
           :key="workspace._id"
           class="workspace-card"
+          @click="navigateToWorkspace(workspace._id)"
         >
           <div class="workspace-content">
             <div class="workspace-avatar">{{ workspace.name[0] }}</div>
             <div class="workspace-details">
               <h3>{{ workspace.name }}</h3>
-              <p>{{ workspace.description || 'No description' }}</p>
+              <p>{{ workspace.description || "No description" }}</p>
               <div class="workspace-meta">
                 <span>{{ workspace.projects?.length || 0 }} projects</span>
                 <span>•</span>
@@ -43,17 +49,29 @@
             </div>
           </div>
           <div class="workspace-actions">
-            <router-link :to="`/workspaces/${workspace._id}`" class="btn btn-secondary">
+            <router-link
+              :to="`/workspaces/${workspace._id}`"
+              class="btn btn-secondary"
+              @click.stop
+            >
               View
             </router-link>
-            <button class="btn btn-icon" @click="editWorkspace(workspace)">✏️</button>
-            <button class="btn btn-icon" @click="confirmDelete(workspace)">🗑️</button>
+            <button class="btn btn-icon" @click.stop="editWorkspace(workspace)">
+              ✏️
+            </button>
+            <button class="btn btn-icon" @click.stop="confirmDelete(workspace)">
+              🗑️
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Create Modal -->
-      <div v-if="showCreateModal" class="modal-overlay" @click="showCreateModal = false">
+      <div
+        v-if="showCreateModal"
+        class="modal-overlay"
+        @click="showCreateModal = false"
+      >
         <div class="modal" @click.stop>
           <div class="modal-header">
             <h2>Create New Workspace</h2>
@@ -62,16 +80,35 @@
           <form @submit.prevent="createWorkspace">
             <div class="form-group">
               <label class="form-label">Workspace Name *</label>
-              <input v-model="newWorkspace.name" type="text" class="form-input" required />
+              <input
+                v-model="newWorkspace.name"
+                type="text"
+                class="form-input"
+                required
+              />
             </div>
             <div class="form-group">
               <label class="form-label">Description</label>
-              <textarea v-model="newWorkspace.description" class="form-input" rows="3"></textarea>
+              <textarea
+                v-model="newWorkspace.description"
+                class="form-input"
+                rows="3"
+              ></textarea>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="showCreateModal = false">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="creating">
-                {{ creating ? 'Creating...' : 'Create' }}
+              <button
+                type="button"
+                class="btn btn-secondary"
+                @click="showCreateModal = false"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="creating"
+              >
+                {{ creating ? "Creating..." : "Create" }}
               </button>
             </div>
           </form>
@@ -79,7 +116,11 @@
       </div>
 
       <!-- Edit Modal -->
-      <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+      <div
+        v-if="showEditModal"
+        class="modal-overlay"
+        @click="showEditModal = false"
+      >
         <div class="modal" @click.stop>
           <div class="modal-header">
             <h2>Edit Workspace</h2>
@@ -88,16 +129,35 @@
           <form @submit.prevent="updateWorkspace">
             <div class="form-group">
               <label class="form-label">Workspace Name *</label>
-              <input v-model="editingWorkspace.name" type="text" class="form-input" required />
+              <input
+                v-model="editingWorkspace.name"
+                type="text"
+                class="form-input"
+                required
+              />
             </div>
             <div class="form-group">
               <label class="form-label">Description</label>
-              <textarea v-model="editingWorkspace.description" class="form-input" rows="3"></textarea>
+              <textarea
+                v-model="editingWorkspace.description"
+                class="form-input"
+                rows="3"
+              ></textarea>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="showEditModal = false">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="updating">
-                {{ updating ? 'Saving...' : 'Save Changes' }}
+              <button
+                type="button"
+                class="btn btn-secondary"
+                @click="showEditModal = false"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="updating"
+              >
+                {{ updating ? "Saving..." : "Save Changes" }}
               </button>
             </div>
           </form>
@@ -105,19 +165,34 @@
       </div>
 
       <!-- Delete Modal -->
-      <div v-if="showDeleteModal" class="modal-overlay" @click="showDeleteModal = false">
+      <div
+        v-if="showDeleteModal"
+        class="modal-overlay"
+        @click="showDeleteModal = false"
+      >
         <div class="modal modal-sm" @click.stop>
           <div class="modal-header">
             <h2>Delete Workspace</h2>
             <button class="btn-icon" @click="showDeleteModal = false">✕</button>
           </div>
           <div class="modal-body">
-            <p>Are you sure you want to delete "<strong>{{ deletingWorkspace?.name }}</strong>"? This action cannot be undone.</p>
+            <p>
+              Are you sure you want to delete "<strong>{{
+                deletingWorkspace?.name
+              }}</strong
+              >"? This action cannot be undone.
+            </p>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary" @click="showDeleteModal = false">Cancel</button>
-            <button class="btn btn-danger" @click="deleteWorkspace" :disabled="deleting">
-              {{ deleting ? 'Deleting...' : 'Delete' }}
+            <button class="btn btn-secondary" @click="showDeleteModal = false">
+              Cancel
+            </button>
+            <button
+              class="btn btn-danger"
+              @click="deleteWorkspace"
+              :disabled="deleting"
+            >
+              {{ deleting ? "Deleting..." : "Delete" }}
             </button>
           </div>
         </div>
@@ -127,71 +202,77 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import Layout from '../components/Layout.vue'
-import { useWorkspaceStore } from '../stores/workspace'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import Layout from "../components/Layout.vue";
+import { useWorkspaceStore } from "../stores/workspace";
 
-const workspaceStore = useWorkspaceStore()
+const router = useRouter();
+const workspaceStore = useWorkspaceStore();
 
-const showCreateModal = ref(false)
-const showEditModal = ref(false)
-const showDeleteModal = ref(false)
-const creating = ref(false)
-const updating = ref(false)
-const deleting = ref(false)
+const showCreateModal = ref(false);
+const showEditModal = ref(false);
+const showDeleteModal = ref(false);
+const creating = ref(false);
+const updating = ref(false);
+const deleting = ref(false);
 
-const newWorkspace = ref({ name: '', description: '' })
-const editingWorkspace = ref(null)
-const deletingWorkspace = ref(null)
+const newWorkspace = ref({ name: "", description: "" });
+const editingWorkspace = ref(null);
+const deletingWorkspace = ref(null);
 
 onMounted(() => {
-  workspaceStore.fetchWorkspaces()
-})
+  workspaceStore.fetchWorkspaces();
+});
 
 async function createWorkspace() {
-  creating.value = true
+  creating.value = true;
   try {
-    await workspaceStore.createWorkspace(newWorkspace.value)
-    showCreateModal.value = false
-    newWorkspace.value = { name: '', description: '' }
+    await workspaceStore.createWorkspace(newWorkspace.value);
+    showCreateModal.value = false;
+    newWorkspace.value = { name: "", description: "" };
   } finally {
-    creating.value = false
+    creating.value = false;
   }
 }
 
 function editWorkspace(workspace) {
-  editingWorkspace.value = { ...workspace }
-  showEditModal.value = true
+  editingWorkspace.value = { ...workspace };
+  showEditModal.value = true;
 }
 
 async function updateWorkspace() {
-  updating.value = true
+  updating.value = true;
   try {
     await workspaceStore.updateWorkspace(editingWorkspace.value._id, {
       name: editingWorkspace.value.name,
-      description: editingWorkspace.value.description
-    })
-    showEditModal.value = false
-    editingWorkspace.value = null
+      description: editingWorkspace.value.description,
+    });
+    showEditModal.value = false;
+    editingWorkspace.value = null;
   } finally {
-    updating.value = false
+    updating.value = false;
   }
 }
 
 function confirmDelete(workspace) {
-  deletingWorkspace.value = workspace
-  showDeleteModal.value = true
+  deletingWorkspace.value = workspace;
+  showDeleteModal.value = true;
 }
 
 async function deleteWorkspace() {
-  deleting.value = true
+  deleting.value = true;
   try {
-    await workspaceStore.deleteWorkspace(deletingWorkspace.value._id)
-    showDeleteModal.value = false
-    deletingWorkspace.value = null
+    await workspaceStore.deleteWorkspace(deletingWorkspace.value._id);
+    showDeleteModal.value = false;
+    deletingWorkspace.value = null;
   } finally {
-    deleting.value = false
+    deleting.value = false;
   }
+}
+
+function navigateToWorkspace(id) {
+  router.push(`/workspaces/${id}`);
 }
 </script>
 
@@ -232,6 +313,7 @@ async function deleteWorkspace() {
   justify-content: space-between;
   align-items: center;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .workspace-card:hover {
@@ -308,7 +390,7 @@ async function deleteWorkspace() {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay-bg, rgba(0, 0, 0, 0.5));
   display: flex;
   align-items: center;
   justify-content: center;

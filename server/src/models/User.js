@@ -35,7 +35,9 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
   settings: {
-    timezone: { type: String, default: 'UTC' }
+    timezone: { type: String, default: 'UTC' },
+    theme: { type: String, default: 'default' },
+    darkMode: { type: Boolean, default: true }
   }
 }, {
   timestamps: true

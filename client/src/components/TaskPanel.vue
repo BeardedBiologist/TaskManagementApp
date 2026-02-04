@@ -685,7 +685,7 @@ function confirmDelete() {
   display: flex;
   flex-direction: column;
   z-index: 200;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
+  box-shadow: -10px 0 40px var(--shadow-color-heavy, rgba(0, 0, 0, 0.4));
 }
 
 .panel-header {
@@ -823,7 +823,7 @@ function confirmDelete() {
 }
 
 .timer-btn:hover {
-  background: #059669;
+  background: var(--accent-emerald);
 }
 
 .timer-btn.running {
@@ -831,7 +831,7 @@ function confirmDelete() {
 }
 
 .timer-btn.running:hover {
-  background: #dc2626;
+  background: var(--accent-rose);
 }
 
 .timer-btn svg {
@@ -1025,12 +1025,12 @@ function confirmDelete() {
 
 .drop-zone:hover {
   border-color: var(--primary-500);
-  background: rgba(139, 92, 246, 0.05);
+  background: var(--primary-500-alpha-05, rgba(139, 92, 246, 0.05));
 }
 
 .drop-zone.dragging {
   border-color: var(--primary-500);
-  background: rgba(139, 92, 246, 0.1);
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
 }
 
 .drop-zone svg {
@@ -1078,12 +1078,12 @@ function confirmDelete() {
 }
 
 .file-icon.image {
-  background: rgba(139, 92, 246, 0.15);
+  background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
 }
 
 .file-icon.pdf {
-  background: rgba(244, 63, 94, 0.15);
+  background: var(--accent-rose-alpha-15, rgba(244, 63, 94, 0.15));
   color: var(--accent-rose);
 }
 

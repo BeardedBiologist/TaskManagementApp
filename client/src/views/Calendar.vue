@@ -534,12 +534,12 @@ async function handleDrop(date, e) {
 }
 
 .day-cell.other-month {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-muted, rgba(0, 0, 0, 0.2));
   color: var(--text-tertiary);
 }
 
 .day-cell.today {
-  background: rgba(139, 92, 246, 0.05);
+  background: var(--primary-500-alpha-05, rgba(139, 92, 246, 0.05));
 }
 
 .day-cell.today .day-number {
@@ -559,8 +559,8 @@ async function handleDrop(date, e) {
 }
 
 .day-cell.drag-over {
-  background: rgba(16, 185, 129, 0.08);
-  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.6);
+  background: var(--accent-emerald-alpha-08, rgba(16, 185, 129, 0.08));
+  box-shadow: inset 0 0 0 2px var(--accent-emerald-alpha-60, rgba(16, 185, 129, 0.6));
 }
 
 .day-number {
@@ -601,7 +601,7 @@ async function handleDrop(date, e) {
 }
 
 .calendar-task.overdue {
-  background: rgba(244, 63, 94, 0.1);
+  background: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
 }
 
 .task-dot {
@@ -683,8 +683,8 @@ async function handleDrop(date, e) {
 }
 
 .upcoming-task.overdue {
-  border-color: rgba(244, 63, 94, 0.3);
-  background: rgba(244, 63, 94, 0.05);
+  border-color: var(--error-border, rgba(244, 63, 94, 0.3));
+  background: var(--accent-rose-alpha-05, rgba(244, 63, 94, 0.05));
 }
 
 .task-meta {
@@ -740,10 +740,10 @@ async function handleDrop(date, e) {
   font-weight: 600;
 }
 
-.priority-badge.urgent { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
-.priority-badge.high { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
-.priority-badge.medium { background: rgba(139, 92, 246, 0.15); color: var(--primary-400); }
-.priority-badge.low { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+.priority-badge.urgent { background: var(--accent-rose-alpha-15, rgba(244, 63, 94, 0.15)); color: var(--accent-rose); }
+.priority-badge.high { background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15)); color: var(--accent-amber); }
+.priority-badge.medium { background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15)); color: var(--primary-400); }
+.priority-badge.low { background: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15)); color: var(--accent-emerald); }
 
 .assignee-avatars {
   display: flex;

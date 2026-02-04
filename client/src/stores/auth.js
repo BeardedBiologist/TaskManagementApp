@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import api from '../utils/api'
 import { getBrowserTimeZone } from '../utils/helpers'
+import { useThemeStore } from './theme'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -21,6 +22,29 @@ export const useAuthStore = defineStore('auth', () => {
   const userTimezone = computed(() => {
     return user.value?.settings?.timezone || getBrowserTimeZone()
   })
+
+  // Sync user settings with theme store
+  function syncUserTheme() {
+    if (user.value?.settings) {
+      const themeStore = useThemeStore()
+      const { theme, darkMode } = user.value.settings
+      
+      if (theme && theme !== themeStore.currentTheme) {
+        themeStore.setTheme(theme)
+      }
+      
+      if (darkMode !== undefined && darkMode !== themeStore.isDarkMode) {
+        themeStore.setDarkMode(darkMode)
+      }
+    }
+  }
+
+  // Watch for user changes and sync theme
+  watch(user, (newUser) => {
+    if (newUser) {
+      syncUserTheme()
+    }
+  }, { immediate: true })
 
   function setToken(newToken) {
     token.value = newToken
@@ -97,6 +121,17 @@ export const useAuthStore = defineStore('auth', () => {
     return data
   }
 
+  // Save theme preferences to server
+  async function saveThemePreference(theme, darkMode) {
+    const updates = {}
+    if (theme !== undefined) updates.theme = theme
+    if (darkMode !== undefined) updates.darkMode = darkMode
+    
+    if (Object.keys(updates).length > 0) {
+      return await updateProfile(updates)
+    }
+  }
+
   return {
     user,
     token,
@@ -111,6 +146,8 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentUser,
     initializeAuth,
     logout,
-    updateProfile
+    updateProfile,
+    saveThemePreference,
+    syncUserTheme
   }
 })

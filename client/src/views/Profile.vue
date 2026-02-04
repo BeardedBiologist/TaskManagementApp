@@ -57,7 +57,7 @@
                   {{ tz }}
                 </option>
               </select>
-              <span class="form-hint">Used to render dates and “today/tomorrow” correctly</span>
+              <span class="form-hint">Used to render dates and "today/tomorrow" correctly</span>
             </div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" :disabled="updating">
@@ -65,6 +65,62 @@
               </button>
             </div>
           </form>
+        </div>
+
+        <div class="card appearance-card">
+          <h3>Appearance</h3>
+          <p class="section-description">Customize how TaskFlow looks for you.</p>
+          
+          <div class="form-group">
+            <label class="form-label">Theme</label>
+            <div class="theme-grid">
+              <button
+                v-for="theme in themeStore.availableThemes"
+                :key="theme.key"
+                class="theme-option"
+                :class="{ active: themeStore.currentTheme === theme.key }"
+                @click="selectTheme(theme.key)"
+              >
+                <div class="theme-preview" :style="{ background: theme.preview }"></div>
+                <div class="theme-info">
+                  <span class="theme-name">{{ theme.name }}</span>
+                  <span class="theme-description">{{ theme.description }}</span>
+                </div>
+                <div v-if="themeStore.currentTheme === theme.key" class="theme-check">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group dark-mode-section">
+            <label class="form-label">Color Mode</label>
+            <div class="color-mode-toggle">
+              <button
+                class="mode-btn"
+                :class="{ active: themeStore.isDarkMode }"
+                @click="setDarkMode(true)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+                <span>Dark</span>
+              </button>
+              <button
+                class="mode-btn"
+                :class="{ active: !themeStore.isDarkMode }"
+                @click="setDarkMode(false)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+                </svg>
+                <span>Light</span>
+              </button>
+            </div>
+            <span class="form-hint">Choose your preferred color scheme</span>
+          </div>
         </div>
 
         <div class="card danger-zone">
@@ -90,12 +146,14 @@ import Layout from '../components/Layout.vue'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useSocketStore } from '../stores/socket'
+import { useThemeStore } from '../stores/theme'
 import { getBrowserTimeZone } from '../utils/helpers'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
 const socketStore = useSocketStore()
+const themeStore = useThemeStore()
 
 const updating = ref(false)
 const profile = ref({
@@ -141,6 +199,18 @@ const timezones = computed(() => {
     'Australia/Sydney'
   ]
 })
+
+async function selectTheme(themeKey) {
+  themeStore.setTheme(themeKey)
+  // Save to server
+  await authStore.saveThemePreference(themeKey, undefined)
+}
+
+async function setDarkMode(value) {
+  themeStore.setDarkMode(value)
+  // Save to server
+  await authStore.saveThemePreference(undefined, value)
+}
 
 async function updateProfile() {
   updating.value = true
@@ -213,7 +283,7 @@ function handleLogout() {
   display: inline-block;
   margin-top: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  background-color: rgba(139, 92, 246, 0.15);
+  background-color: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
   border-radius: var(--radius-full);
   font-size: 0.75rem;
@@ -245,10 +315,18 @@ function handleLogout() {
   color: var(--text-secondary);
 }
 
-.settings-card h3 {
+.settings-card h3,
+.appearance-card h3 {
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: var(--space-6);
+}
+
+.section-description {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-6);
+  margin-top: calc(-1 * var(--space-4));
 }
 
 .form-row {
@@ -261,10 +339,128 @@ function handleLogout() {
   font-size: 0.75rem;
   color: var(--text-tertiary);
   margin-top: var(--space-1);
+  display: block;
 }
 
 .form-actions {
   margin-top: var(--space-6);
+}
+
+/* Theme Selection Styles */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  position: relative;
+}
+
+.theme-option:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+}
+
+.theme-option.active {
+  border-color: var(--primary-500);
+  background: var(--bg-elevated);
+}
+
+.theme-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.theme-description {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.theme-check {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 20px;
+  height: 20px;
+  color: var(--primary-400);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full);
+  padding: 2px;
+}
+
+/* Dark Mode Toggle */
+.dark-mode-section {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.color-mode-toggle {
+  display: flex;
+  gap: var(--space-2);
+  background: var(--bg-tertiary);
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .danger-zone h3 {
@@ -279,9 +475,9 @@ function handleLogout() {
   justify-content: space-between;
   align-items: center;
   padding: var(--space-4);
-  background-color: rgba(244, 63, 94, 0.1);
+  background-color: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
   border-radius: var(--radius-md);
-  border: 1px solid rgba(244, 63, 94, 0.2);
+  border: 1px solid var(--error-border, rgba(244, 63, 94, 0.2));
 }
 
 .danger-item h4 {
@@ -293,5 +489,11 @@ function handleLogout() {
   font-size: 0.875rem;
   color: var(--text-secondary);
   margin-top: var(--space-1);
+}
+
+@media (max-width: 480px) {
+  .theme-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

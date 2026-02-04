@@ -7,13 +7,18 @@
 import { onMounted, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useSocketStore } from './stores/socket'
+import { useThemeStore } from './stores/theme'
 import CommandPalette from './components/CommandPalette.vue'
 
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
+const themeStore = useThemeStore()
 const commandPaletteRef = ref(null)
 
 onMounted(() => {
+  // Initialize theme first
+  themeStore.initializeTheme()
+  
   authStore.initializeAuth()
   if (authStore.isAuthenticated) {
     socketStore.connect()
@@ -29,59 +34,9 @@ onMounted(() => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
+/* CSS Variables are set dynamically by the theme store */
 :root {
-  /* Unique color palette - deep purple/indigo theme */
-  --primary-50: #f5f3ff;
-  --primary-100: #ede9fe;
-  --primary-200: #ddd6fe;
-  --primary-300: #c4b5fd;
-  --primary-400: #a78bfa;
-  --primary-500: #8b5cf6;
-  --primary-600: #7c3aed;
-  --primary-700: #6d28d9;
-  --primary-800: #5b21b6;
-  --primary-900: #4c1d95;
-  
-  /* Accent colors */
-  --accent-cyan: #06b6d4;
-  --accent-pink: #ec4899;
-  --accent-amber: #f59e0b;
-  --accent-emerald: #10b981;
-  --accent-rose: #f43f5e;
-  
-  /* Neutral scale */
-  --gray-50: #fafafa;
-  --gray-100: #f4f4f5;
-  --gray-200: #e4e4e7;
-  --gray-300: #d4d4d8;
-  --gray-400: #a1a1aa;
-  --gray-500: #71717a;
-  --gray-600: #52525b;
-  --gray-700: #3f3f46;
-  --gray-800: #27272a;
-  --gray-900: #18181b;
-  
-  /* Semantic colors */
-  --bg-primary: #0f0f13;
-  --bg-secondary: #18181c;
-  --bg-tertiary: #232329;
-  --bg-elevated: #2a2a32;
-  
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.15);
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.3);
-  
-  /* Spacing */
+  /* Spacing - same across all themes */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -92,12 +47,30 @@ onMounted(() => {
   --space-10: 2.5rem;
   --space-12: 3rem;
   
-  /* Radii */
+  /* Radii - same across all themes */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-full: 9999px;
+}
+
+/* Smooth transitions for theme changes */
+*,
+*::before,
+*::after {
+  transition: background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease,
+              color 0.2s ease;
+}
+
+/* Exclude elements that shouldn't transition */
+.spinner,
+.spinner *,
+.animate-slide-in,
+.animate-fade-in {
+  transition: none !important;
 }
 
 * {
@@ -149,12 +122,12 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
   border-color: var(--primary-500);
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 14px rgba(var(--primary-600-rgb, 124, 58, 237), 0.4);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 6px 20px rgba(var(--primary-600-rgb, 124, 58, 237), 0.5);
 }
 
 .btn-secondary {
@@ -237,7 +210,7 @@ h1, h2, h3, h4, h5, h6 {
 .form-select:focus {
   outline: none;
   border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--primary-500-rgb, 139, 92, 246), 0.15);
 }
 
 .form-input::placeholder,

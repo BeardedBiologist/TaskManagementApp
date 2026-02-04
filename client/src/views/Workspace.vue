@@ -330,7 +330,7 @@ async function updateSettings() {
   width: 4rem;
   height: 4rem;
   border-radius: 1rem;
-  background-color: #3b82f6;
+  background-color: var(--primary-500);
   color: white;
   display: flex;
   align-items: center;
@@ -382,7 +382,7 @@ async function updateSettings() {
 }
 
 .error-alert {
-  background-color: rgba(244, 63, 94, 0.1);
+  background-color: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
   color: var(--accent-rose);
   padding: var(--space-4);
   border-radius: var(--radius-md);
@@ -434,7 +434,7 @@ async function updateSettings() {
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: rgba(16, 185, 129, 0.15);
+  background-color: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15));
   color: var(--accent-emerald);
 }
 
@@ -510,12 +510,12 @@ async function updateSettings() {
 }
 
 .badge.owner {
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15));
   color: var(--accent-amber);
 }
 
 .badge.admin {
-  background-color: rgba(139, 92, 246, 0.15);
+  background-color: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
 }
 
@@ -566,7 +566,7 @@ async function updateSettings() {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--overlay-bg, rgba(0, 0, 0, 0.5));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -601,7 +601,7 @@ async function updateSettings() {
 }
 
 .modal-error {
-  background-color: rgba(244, 63, 94, 0.1);
+  background-color: var(--accent-rose-alpha-10, rgba(244, 63, 94, 0.1));
   color: var(--accent-rose);
   padding: var(--space-3);
   border-radius: var(--radius-md);
