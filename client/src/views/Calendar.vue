@@ -33,17 +33,21 @@
             </div>
           </div>
           <div class="days-grid">
-            <div 
-              v-for="(day, index) in calendarDays" 
-              :key="index"
-              class="day-cell"
-              :class="{
-                'other-month': !day.isCurrentMonth,
-                'today': day.isToday,
-                'selected': isSelected(day.date)
-              }"
-              @click="selectDate(day.date)"
-            >
+          <div 
+            v-for="(day, index) in calendarDays" 
+            :key="index"
+            class="day-cell"
+            :class="{
+              'other-month': !day.isCurrentMonth,
+              'today': day.isToday,
+              'selected': isSelected(day.date),
+              'drag-over': isDragOver(day.date)
+            }"
+            @click="selectDate(day.date)"
+            @dragover.prevent="handleDragOver(day.date)"
+            @dragleave="handleDragLeave"
+            @drop.prevent="handleDrop(day.date, $event)"
+          >
               <div class="day-number">{{ day.date.getDate() }}</div>
               <div class="day-tasks">
                 <div
@@ -133,20 +137,23 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { format, isSameDay, isToday, isTomorrow, isPast, addDays } from 'date-fns'
+import { isSameDay } from 'date-fns'
 import Layout from '../components/Layout.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import { useProjectStore } from '../stores/project'
 import { useWorkspaceStore } from '../stores/workspace'
-import { getInitials } from '../utils/helpers'
+import { useAuthStore } from '../stores/auth'
+import { getInitials, normalizeDateKey, getTodayKey, addDaysToDateKey, formatDate, isOverdue as isDateOverdue } from '../utils/helpers'
 
 const projectStore = useProjectStore()
 const workspaceStore = useWorkspaceStore()
+const authStore = useAuthStore()
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const currentDate = ref(new Date())
 const selectedDate = ref(new Date())
 const selectedTask = ref(null)
+const dragOverDate = ref(null)
 const allTasks = ref([])
 const projectColors = new Map()
 
@@ -154,6 +161,8 @@ const currentYear = computed(() => currentDate.value.getFullYear())
 const currentMonthName = computed(() => {
   return currentDate.value.toLocaleString('default', { month: 'long' })
 })
+const timeZone = computed(() => authStore.userTimezone)
+const todayKey = computed(() => getTodayKey(timeZone.value))
 
 // Get all tasks from all projects
 const tasks = computed(() => {
@@ -162,15 +171,15 @@ const tasks = computed(() => {
 
 // Tasks for the upcoming panel (next 30 days, not completed)
 const upcomingTasks = computed(() => {
-  const now = new Date()
-  const thirtyDaysFromNow = addDays(now, 30)
-  
+  const startKey = todayKey.value
+  const endKey = addDaysToDateKey(startKey, 30)
+
   return tasks.value
     .filter(task => {
-      const dueDate = new Date(task.dueDate)
-      return dueDate >= now && dueDate <= thirtyDaysFromNow && !isCompleted(task)
+      const dueKey = normalizeDateKey(task.dueDate)
+      return dueKey && dueKey >= startKey && dueKey <= endKey && !isCompleted(task)
     })
-    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .sort((a, b) => normalizeDateKey(a.dueDate).localeCompare(normalizeDateKey(b.dueDate)))
 })
 
 const calendarDays = computed(() => {
@@ -188,20 +197,22 @@ const calendarDays = computed(() => {
   
   for (let i = paddingDays - 1; i >= 0; i--) {
     const date = new Date(year, month - 1, prevMonthLastDay - i)
+    const dateKey = dateKeyFromLocalDate(date)
     days.push({
       date,
       isCurrentMonth: false,
-      isToday: isSameDay(date, new Date())
+      isToday: dateKey === todayKey.value
     })
   }
   
   // Current month days
   for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
     const date = new Date(year, month, i)
+    const dateKey = dateKeyFromLocalDate(date)
     days.push({
       date,
       isCurrentMonth: true,
-      isToday: isSameDay(date, new Date())
+      isToday: dateKey === todayKey.value
     })
   }
   
@@ -209,10 +220,11 @@ const calendarDays = computed(() => {
   const remainingCells = 42 - days.length
   for (let i = 1; i <= remainingCells; i++) {
     const date = new Date(year, month + 1, i)
+    const dateKey = dateKeyFromLocalDate(date)
     days.push({
       date,
       isCurrentMonth: false,
-      isToday: isSameDay(date, new Date())
+      isToday: dateKey === todayKey.value
     })
   }
   
@@ -257,9 +269,10 @@ async function fetchProjectTasks(projectId) {
 }
 
 function getTasksForDate(date) {
+  const dateKey = dateKeyFromLocalDate(date)
   return tasks.value.filter(task => {
     if (!task.dueDate) return false
-    return isSameDay(new Date(task.dueDate), date)
+    return normalizeDateKey(task.dueDate) === dateKey
   }).sort((a, b) => {
     // Sort by priority: urgent > high > medium > low
     const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 }
@@ -273,8 +286,7 @@ function isCompleted(task) {
 }
 
 function isOverdue(date) {
-  if (!date) return false
-  return isPast(new Date(date)) && !isToday(new Date(date))
+  return isDateOverdue(date, timeZone.value)
 }
 
 function getProjectColor(projectId) {
@@ -308,6 +320,13 @@ function getTaskColumns(task) {
   ]
 }
 
+function dateKeyFromLocalDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function generateColor(str) {
   const colors = [
     '#8b5cf6', '#06b6d4', '#ec4899', '#f59e0b', 
@@ -322,23 +341,24 @@ function generateColor(str) {
 
 function formatDueDate(date) {
   if (!date) return ''
-  const d = new Date(date)
-  if (isToday(d)) return 'Today'
-  if (isTomorrow(d)) return 'Tomorrow'
-  return format(d, 'MMM d')
+  return formatDate(date, timeZone.value)
 }
 
 function getDueDateClass(date) {
   if (!date) return ''
-  const d = new Date(date)
-  if (isToday(d)) return 'today'
-  if (isTomorrow(d)) return 'tomorrow'
-  if (isPast(d) && !isToday(d)) return 'overdue'
+  const key = normalizeDateKey(date)
+  if (key === todayKey.value) return 'today'
+  if (key === addDaysToDateKey(todayKey.value, 1)) return 'tomorrow'
+  if (key < todayKey.value) return 'overdue'
   return ''
 }
 
 function isSelected(date) {
   return isSameDay(date, selectedDate.value)
+}
+
+function isDragOver(date) {
+  return dragOverDate.value && isSameDay(date, dragOverDate.value)
 }
 
 function selectDate(date) {
@@ -382,7 +402,25 @@ async function deleteTask(taskId) {
 // Drag and drop to change due date
 function handleDragStart(e, task) {
   e.dataTransfer.setData('taskId', task._id)
+  e.dataTransfer.setData('text/plain', task._id)
   e.dataTransfer.effectAllowed = 'move'
+}
+
+function handleDragOver(date) {
+  dragOverDate.value = date
+}
+
+function handleDragLeave() {
+  dragOverDate.value = null
+}
+
+async function handleDrop(date, e) {
+  dragOverDate.value = null
+  const taskId = e?.dataTransfer?.getData('taskId') || e?.dataTransfer?.getData('text/plain')
+  if (!taskId) return
+
+  const dueDateKey = dateKeyFromLocalDate(date)
+  await updateTask(taskId, { dueDate: dueDateKey })
 }
 </script>
 
@@ -518,6 +556,11 @@ function handleDragStart(e, task) {
 
 .day-cell.selected {
   box-shadow: inset 0 0 0 2px var(--primary-500);
+}
+
+.day-cell.drag-over {
+  background: rgba(16, 185, 129, 0.08);
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.6);
 }
 
 .day-number {

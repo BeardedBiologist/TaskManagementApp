@@ -10,7 +10,8 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('firstName').trim().notEmpty(),
-  body('lastName').trim().notEmpty()
+  body('lastName').trim().notEmpty(),
+  body('timezone').optional().trim().notEmpty()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -18,7 +19,7 @@ router.post('/register', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, firstName, lastName } = req.body;
+    const { email, password, firstName, lastName, timezone } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -28,7 +29,8 @@ router.post('/register', [
     const user = await User.create({
       email,
       password,
-      name: { first: firstName, last: lastName }
+      name: { first: firstName, last: lastName },
+      ...(timezone ? { settings: { timezone } } : {})
     });
 
     const token = generateToken(user._id);

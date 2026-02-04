@@ -1,4 +1,5 @@
 import express from 'express';
+import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -10,6 +11,43 @@ router.get('/me', authenticate, async (req, res, next) => {
     const user = await User.findById(req.user._id)
       .populate('workspaces.workspace', 'name description');
     res.json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update current user profile
+router.put('/me', authenticate, [
+  body('firstName').optional().trim().notEmpty(),
+  body('lastName').optional().trim().notEmpty(),
+  body('timezone').optional().trim().notEmpty()
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { firstName, lastName, timezone } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (firstName || lastName) {
+      user.name.first = firstName || user.name.first;
+      user.name.last = lastName || user.name.last;
+    }
+
+    if (timezone) {
+      user.settings = user.settings || {};
+      user.settings.timezone = timezone;
+    }
+
+    await user.save();
+    const updated = await User.findById(user._id).populate('workspaces.workspace', 'name description');
+    res.json(updated);
   } catch (error) {
     next(error);
   }

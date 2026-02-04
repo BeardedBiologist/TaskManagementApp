@@ -126,7 +126,8 @@ async function handleRegister() {
     firstName: form.firstName,
     lastName: form.lastName,
     email: form.email,
-    password: form.password
+    password: form.password,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   })
   
   if (success) {

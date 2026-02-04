@@ -73,7 +73,9 @@ const taskSchema = new mongoose.Schema({
   }],
   timeTracking: {
     estimated: { type: Number, default: 0 },
-    spent: { type: Number, default: 0 }
+    spent: { type: Number, default: 0 },
+    isRunning: { type: Boolean, default: false },
+    startedAt: { type: Date, default: null }
   },
   isArchived: {
     type: Boolean,

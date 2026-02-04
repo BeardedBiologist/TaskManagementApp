@@ -5,6 +5,31 @@ import Project from '../models/Project.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
+const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeDueDateInput(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && DATE_KEY_REGEX.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 12));
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12));
+}
+
+function formatDueDateOutput(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function sanitizeTask(task) {
+  const obj = typeof task.toObject === 'function' ? task.toObject() : { ...task };
+  obj.dueDate = formatDueDateOutput(obj.dueDate);
+  return obj;
+}
 
 // Create task
 router.post('/', authenticate, [
@@ -41,7 +66,7 @@ router.post('/', authenticate, [
       order,
       assignees: assignees || [],
       priority: priority || 'medium',
-      dueDate,
+      dueDate: normalizeDueDateInput(dueDate),
       labels: labels || [],
       createdBy: req.user._id
     });
@@ -49,9 +74,10 @@ router.post('/', authenticate, [
     await task.populate('assignees createdBy');
 
     // Emit to project room
-    req.io.to(`project:${projectId}`).emit('task-created', task);
+    const taskPayload = sanitizeTask(task);
+    req.io.to(`project:${projectId}`).emit('task-created', taskPayload);
 
-    res.status(201).json(task);
+    res.status(201).json(taskPayload);
   } catch (error) {
     next(error);
   }
@@ -78,7 +104,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    res.json(task);
+    res.json(sanitizeTask(task));
   } catch (error) {
     next(error);
   }
@@ -101,14 +127,18 @@ router.put('/:id', authenticate, async (req, res, next) => {
     }
 
     const updates = req.body;
+    if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
+      updates.dueDate = normalizeDueDateInput(updates.dueDate);
+    }
     Object.assign(task, updates);
     await task.save();
     await task.populate('assignees createdBy');
 
     // Emit update
-    req.io.to(`project:${task.project}`).emit('task-updated', task);
+    const updatedPayload = sanitizeTask(task);
+    req.io.to(`project:${task.project}`).emit('task-updated', updatedPayload);
 
-    res.json(task);
+    res.json(updatedPayload);
   } catch (error) {
     next(error);
   }
@@ -139,14 +169,15 @@ router.post('/:id/move', authenticate, async (req, res, next) => {
     await task.populate('assignees createdBy');
 
     // Emit move event
+    const movedPayload = sanitizeTask(task);
     req.io.to(`project:${task.project}`).emit('task-moved', {
-      task,
+      task: movedPayload,
       oldColumnId,
       newColumnId: columnId,
       newOrder: order
     });
 
-    res.json(task);
+    res.json(movedPayload);
   } catch (error) {
     next(error);
   }

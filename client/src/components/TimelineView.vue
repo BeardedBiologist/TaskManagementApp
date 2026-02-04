@@ -199,14 +199,8 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { 
-  addDays, addMonths, 
-  startOfMonth, startOfQuarter,
-  endOfMonth, endOfQuarter,
-  format, isSameDay, isToday, isWeekend,
-  parseISO
-} from 'date-fns'
-import { getInitials } from '../utils/helpers'
+import { useAuthStore } from '../stores/auth'
+import { getInitials, normalizeDateKey, addDaysToDateKey, formatDateKey, getTodayKey } from '../utils/helpers'
 
 const props = defineProps({
   tasks: { type: Array, default: () => [] },
@@ -215,6 +209,10 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select-task', 'update-task'])
+
+const authStore = useAuthStore()
+const timeZone = computed(() => authStore.userTimezone)
+const todayKey = computed(() => getTodayKey(timeZone.value))
 
 // View state
 const currentView = ref('week')
@@ -265,71 +263,86 @@ const sortedTasks = computed(() => {
       if (!a.dueDate && b.dueDate) return 1
       if (a.dueDate && !b.dueDate) return -1
       if (!a.dueDate && !b.dueDate) return 0
-      return new Date(a.dueDate) - new Date(b.dueDate)
+      const aKey = normalizeDateKey(a.dueDate)
+      const bKey = normalizeDateKey(b.dueDate)
+      return aKey.localeCompare(bKey)
     })
 })
 
 // Date range
 const dateRange = computed(() => {
   const tasksWithDates = props.tasks.filter(t => t.dueDate && !t.isArchived)
-  const today = new Date()
-  
-  let start, end
-  
+  let startKey = ''
+  let endKey = ''
+
   if (currentView.value === 'week') {
-    start = addDays(today, -14)
-    end = addDays(today, 21)
+    startKey = addDaysToDateKey(todayKey.value, -14)
+    endKey = addDaysToDateKey(todayKey.value, 21)
   } else if (currentView.value === 'month') {
-    start = startOfMonth(addMonths(today, -1))
-    end = endOfMonth(addMonths(today, 1))
+    const startMonth = addMonthsToDateKey(todayKey.value, -1)
+    startKey = `${startMonth.year}-${pad(startMonth.month)}-01`
+    const endMonth = addMonthsToDateKey(todayKey.value, 1)
+    endKey = endOfMonthKey(endMonth.year, endMonth.month)
   } else {
-    start = startOfQuarter(addMonths(today, -1))
-    end = endOfQuarter(addMonths(today, 1))
+    const startSeed = addMonthsToDateKey(todayKey.value, -1)
+    const startQuarter = getQuarterStart(startSeed.year, startSeed.month)
+    startKey = `${startQuarter.year}-${pad(startQuarter.month)}-01`
+    const endSeed = addMonthsToDateKey(todayKey.value, 1)
+    endKey = getQuarterEndKey(endSeed.year, endSeed.month)
   }
-  
+
   if (tasksWithDates.length > 0) {
-    const dates = tasksWithDates.map(t => new Date(t.dueDate))
-    const minTaskDate = new Date(Math.min(...dates))
-    const maxTaskDate = new Date(Math.max(...dates))
-    
-    if (minTaskDate < start) start = addDays(minTaskDate, -7)
-    if (maxTaskDate > end) end = addDays(maxTaskDate, 14)
+    const keys = tasksWithDates
+      .map(t => normalizeDateKey(t.dueDate))
+      .filter(Boolean)
+      .sort()
+    const minKey = keys[0]
+    const maxKey = keys[keys.length - 1]
+
+    if (minKey && minKey < startKey) startKey = addDaysToDateKey(minKey, -7)
+    if (maxKey && maxKey > endKey) endKey = addDaysToDateKey(maxKey, 14)
   }
-  
-  return { start, end }
+
+  return { startKey, endKey }
 })
 
 // Date columns
 const dateColumns = computed(() => {
   const columns = []
-  let current = new Date(dateRange.value.start)
+  if (!dateRange.value.startKey || !dateRange.value.endKey) return columns
+
+  const dayFormatter = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', day: 'numeric' })
+  const weekdayFormatter = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', weekday: 'short' })
+  const monthFormatter = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC', month: 'short' })
+
+  let currentKey = dateRange.value.startKey
   let index = 0
-  
-  while (current <= dateRange.value.end) {
+
+  while (currentKey && currentKey <= dateRange.value.endKey) {
+    const date = dateFromKeyUTC(currentKey)
     columns.push({
-      date: new Date(current),
-      key: format(current, 'yyyy-MM-dd'),
-      day: format(current, 'd'),
-      weekday: format(current, 'EEE'),
-      month: format(current, 'MMM'),
-      isToday: isToday(current),
-      isWeekend: isWeekend(current),
-      isMonthStart: current.getDate() === 1,
+      date,
+      key: currentKey,
+      day: dayFormatter.format(date),
+      weekday: weekdayFormatter.format(date),
+      month: monthFormatter.format(date),
+      isToday: currentKey === todayKey.value,
+      isWeekend: isWeekendKey(currentKey),
+      isMonthStart: currentKey.endsWith('-01'),
       index
     })
-    
-    current = addDays(current, 1)
+
+    currentKey = addDaysToDateKey(currentKey, 1)
     index++
   }
-  
+
   return columns
 })
 
 const totalWidth = computed(() => dateColumns.value.length * columnWidth.value)
 
 const todayPosition = computed(() => {
-  const today = new Date()
-  const todayCol = dateColumns.value.find(col => isSameDay(col.date, today))
+  const todayCol = dateColumns.value.find(col => col.key === todayKey.value)
   if (!todayCol) return null
   return todayCol.index * columnWidth.value + columnWidth.value / 2
 })
@@ -337,7 +350,7 @@ const todayPosition = computed(() => {
 const dropPreviewDate = computed(() => {
   if (!dragOverDate.value) return ''
   const date = dateColumns.value.find(d => d.key === dragOverDate.value)
-  return date ? format(date.date, 'MMM d') : ''
+  return date ? formatDateKey(date.key, { month: 'short', day: 'numeric' }) : ''
 })
 
 const dropIndicatorStyle = computed(() => {
@@ -350,11 +363,46 @@ const dropIndicatorStyle = computed(() => {
   }
 })
 
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function dateFromKeyUTC(key) {
+  const [year, month, day] = key.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day, 12))
+}
+
+function isWeekendKey(key) {
+  const day = dateFromKeyUTC(key).getUTCDay()
+  return day === 0 || day === 6
+}
+
+function addMonthsToDateKey(dateKey, months) {
+  const [year, month] = dateKey.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, 15))
+  date.setUTCMonth(date.getUTCMonth() + months)
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 }
+}
+
+function endOfMonthKey(year, month) {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return `${year}-${pad(month)}-${pad(lastDay)}`
+}
+
+function getQuarterStart(year, month) {
+  const startMonth = Math.floor((month - 1) / 3) * 3 + 1
+  return { year, month: startMonth }
+}
+
+function getQuarterEndKey(year, month) {
+  const quarterStart = getQuarterStart(year, month)
+  return endOfMonthKey(quarterStart.year, quarterStart.month + 2)
+}
+
 function getTaskPosition(task) {
   if (!task.dueDate) return null
-  
-  const dueDate = parseISO(task.dueDate)
-  const endCol = dateColumns.value.find(col => isSameDay(col.date, dueDate))
+  const dueKey = normalizeDateKey(task.dueDate)
+  const endCol = dateColumns.value.find(col => col.key === dueKey)
   if (!endCol) return null
   
   const duration = task.timeTracking?.estimated 
@@ -447,8 +495,7 @@ function handleContainerDrop(e) {
   const date = dateColumns.value[colIndex]
   if (!date) return
   
-  const newDueDate = format(date.date, 'yyyy-MM-dd')
-  emit('update-task', task._id, { dueDate: newDueDate })
+  emit('update-task', task._id, { dueDate: date.key })
 }
 
 // Resize
@@ -466,11 +513,12 @@ function startResize(e, task, side) {
     
     if (side === 'right') {
       const newDuration = Math.max(1, startDuration + deltaDays)
-      const startDate = addDays(parseISO(task.dueDate), -(startDuration - 1))
-      const newDueDate = addDays(startDate, newDuration - 1)
+      const dueKey = normalizeDateKey(task.dueDate)
+      const startKey = addDaysToDateKey(dueKey, -(startDuration - 1))
+      const newDueKey = addDaysToDateKey(startKey, newDuration - 1)
       
       emit('update-task', task._id, { 
-        dueDate: format(newDueDate, 'yyyy-MM-dd'),
+        dueDate: newDueKey,
         timeTracking: {
           ...task.timeTracking,
           estimated: newDuration * 8 * 3600

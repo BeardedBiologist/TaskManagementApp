@@ -73,7 +73,7 @@
                 <span class="status-badge" :class="{ archived: project.settings?.isArchived }">
                   {{ project.settings?.isArchived ? 'Archived' : 'Active' }}
                 </span>
-                <span class="date">{{ formatDate(project.createdAt) }}</span>
+                <span class="date">{{ formatDate(project.createdAt, authStore.userTimezone) }}</span>
               </div>
             </router-link>
           </div>
@@ -195,12 +195,14 @@ import Layout from '../components/Layout.vue'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useProjectStore } from '../stores/project'
 import { useSocketStore } from '../stores/socket'
+import { useAuthStore } from '../stores/auth'
 import { formatDate, getInitials } from '../utils/helpers'
 
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
 const projectStore = useProjectStore()
 const socketStore = useSocketStore()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const activeTab = ref('projects')

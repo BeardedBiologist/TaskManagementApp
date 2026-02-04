@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../utils/api'
+import { getBrowserTimeZone } from '../utils/helpers'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -16,6 +17,9 @@ export const useAuthStore = defineStore('auth', () => {
   const userInitials = computed(() => {
     if (!user.value) return ''
     return `${user.value.name.first[0]}${user.value.name.last[0]}`.toUpperCase()
+  })
+  const userTimezone = computed(() => {
+    return user.value?.settings?.timezone || getBrowserTimeZone()
   })
 
   function setToken(newToken) {
@@ -87,6 +91,12 @@ export const useAuthStore = defineStore('auth', () => {
     clearAuth()
   }
 
+  async function updateProfile(updates) {
+    const { data } = await api.put('/users/me', updates)
+    user.value = data
+    return data
+  }
+
   return {
     user,
     token,
@@ -95,10 +105,12 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     userName,
     userInitials,
+    userTimezone,
     login,
     register,
     fetchCurrentUser,
     initializeAuth,
-    logout
+    logout,
+    updateProfile
   }
 })

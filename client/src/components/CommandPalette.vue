@@ -64,7 +64,7 @@
                   </div>
                   <div class="content">
                     <span class="title">{{ task.title }}</span>
-                    <span class="description">{{ getProjectName(task.project) }} • Due {{ formatDate(task.dueDate) }}</span>
+                    <span class="description">{{ getProjectName(task.project) }} • Due {{ formatDueDate(task.dueDate) }}</span>
                   </div>
                 </div>
               </div>
@@ -147,13 +147,15 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { format } from 'date-fns'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useProjectStore } from '../stores/project'
+import { useAuthStore } from '../stores/auth'
+import { formatDate } from '../utils/helpers'
 
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const projectStore = useProjectStore()
+const authStore = useAuthStore()
 
 const isOpen = ref(false)
 const searchQuery = ref('')
@@ -205,6 +207,7 @@ const quickActions = [
 // Data from stores
 const allTasks = ref([])
 const allProjects = ref([])
+const timeZone = computed(() => authStore.userTimezone)
 
 const filteredTasks = computed(() => {
   if (!searchQuery.value) return []
@@ -369,9 +372,9 @@ function getProjectName(projectId) {
   return project?.name || 'Unknown Project'
 }
 
-function formatDate(date) {
+function formatDueDate(date) {
   if (!date) return 'No date'
-  return format(new Date(date), 'MMM d')
+  return formatDate(date, timeZone.value)
 }
 
 function generateColor(str) {
