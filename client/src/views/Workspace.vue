@@ -340,25 +340,25 @@ async function updateSettings() {
 .page-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .subtitle {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .workspace-tabs {
   display: flex;
-  gap: 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 1.5rem;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-6);
 }
 
 .tab-btn {
-  padding: 0.75rem 1rem;
+  padding: var(--space-3) var(--space-4);
   font-size: 0.875rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -367,12 +367,12 @@ async function updateSettings() {
 }
 
 .tab-btn:hover {
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: var(--primary-400);
+  border-bottom-color: var(--primary-500);
 }
 
 .tab-content {
@@ -380,11 +380,11 @@ async function updateSettings() {
 }
 
 .error-alert {
-  background-color: #fee2e2;
-  color: #dc2626;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
+  background-color: rgba(244, 63, 94, 0.1);
+  color: var(--accent-rose);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
 }
 
 .projects-grid {
@@ -394,31 +394,31 @@ async function updateSettings() {
 }
 
 .project-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
   text-decoration: none;
   color: inherit;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .project-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary-500);
+  box-shadow: var(--shadow-md);
 }
 
 .project-card h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
 }
 
 .project-card p {
   font-size: 0.875rem;
-  color: #6b7280;
-  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-4);
 }
 
 .project-meta {
@@ -428,28 +428,28 @@ async function updateSettings() {
 }
 
 .status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--accent-emerald);
 }
 
 .status-badge.archived {
-  background-color: #e5e7eb;
-  color: #4b5563;
+  background-color: var(--bg-tertiary);
+  color: var(--text-tertiary);
 }
 
 .date {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -457,8 +457,8 @@ async function updateSettings() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .card-header h3 {
@@ -473,9 +473,9 @@ async function updateSettings() {
 .member-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid #f3f4f6;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .member-item:last-child {
@@ -491,73 +491,74 @@ async function updateSettings() {
 .member-name {
   font-size: 0.875rem;
   font-weight: 500;
+  color: var(--text-primary);
 }
 
 .member-email {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .badge {
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: capitalize;
 }
 
 .badge.owner {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--accent-amber);
 }
 
 .badge.admin {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: rgba(139, 92, 246, 0.15);
+  color: var(--primary-400);
 }
 
 .badge.member {
-  background-color: #e5e7eb;
-  color: #4b5563;
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
 }
 
 .settings-card {
-  padding: 1.5rem;
+  padding: var(--space-6);
   max-width: 600px;
 }
 
 .settings-card h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
 }
 
 .form-actions {
-  margin-top: 1.5rem;
+  margin-top: var(--space-6);
 }
 
 .empty-state {
   text-align: center;
-  padding: 4rem 2rem;
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: var(--space-12) var(--space-8);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 .empty-icon {
   font-size: 4rem;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
 .empty-state h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .empty-state p {
-  color: #6b7280;
-  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-6);
 }
 
 .modal-overlay {
@@ -571,19 +572,21 @@ async function updateSettings() {
 }
 
 .modal {
-  background: white;
-  border-radius: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 400px;
   margin: 1rem;
+  box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .modal-header h2 {
@@ -592,22 +595,22 @@ async function updateSettings() {
 }
 
 .modal form {
-  padding: 1.5rem;
+  padding: var(--space-6);
 }
 
 .modal-error {
-  background-color: #fee2e2;
-  color: #dc2626;
-  padding: 0.75rem;
-  border-radius: 0.375rem;
-  margin-bottom: 1rem;
+  background-color: rgba(244, 63, 94, 0.1);
+  color: var(--accent-rose);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
   font-size: 0.875rem;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
 }
 </style>

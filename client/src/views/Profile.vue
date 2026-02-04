@@ -139,7 +139,7 @@ function handleLogout() {
 .page-header h1 {
   font-size: 1.875rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .profile-content {
@@ -150,37 +150,37 @@ function handleLogout() {
 }
 
 .card {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
 }
 
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
 }
 
 .profile-info h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .profile-info p {
-  color: #6b7280;
-  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
 }
 
 .role-badge {
   display: inline-block;
-  margin-top: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  background-color: #dbeafe;
-  color: #1e40af;
-  border-radius: 9999px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background-color: rgba(139, 92, 246, 0.15);
+  color: var(--primary-400);
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: capitalize;
@@ -189,9 +189,9 @@ function handleLogout() {
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  gap: var(--space-4);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .stat {
@@ -202,61 +202,61 @@ function handleLogout() {
   display: block;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .settings-card h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .form-hint {
   font-size: 0.75rem;
-  color: #9ca3af;
-  margin-top: 0.25rem;
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
 }
 
 .form-actions {
-  margin-top: 1.5rem;
+  margin-top: var(--space-6);
 }
 
 .danger-zone h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: #dc2626;
-  margin-bottom: 1rem;
+  color: var(--accent-rose);
+  margin-bottom: var(--space-4);
 }
 
 .danger-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background-color: #fef2f2;
-  border-radius: 0.5rem;
-  border: 1px solid #fecaca;
+  padding: var(--space-4);
+  background-color: rgba(244, 63, 94, 0.1);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(244, 63, 94, 0.2);
 }
 
 .danger-item h4 {
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .danger-item p {
   font-size: 0.875rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
 }
 </style>

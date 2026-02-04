@@ -207,6 +207,10 @@
               v-for="column in columns" 
               :key="column.id"
               class="board-column"
+              :class="{ 'drag-over': dragOverColumn === column.id }"
+              @dragover.prevent="handleColumnDragOver($event, column.id)"
+              @dragleave="handleColumnDragLeave"
+              @drop="handleColumnDrop($event, column.id)"
             >
               <div class="column-header" :style="{ borderColor: column.color }">
                 <div class="column-title">
@@ -221,12 +225,11 @@
                   v-for="task in getTasksByColumn(column.id)"
                   :key="task._id"
                   class="board-card"
-                  :class="{ selected: selectedTask?._id === task._id }"
+                  :class="{ selected: selectedTask?._id === task._id, dragging: draggingTask === task._id }"
                   @click="selectTask(task)"
                   draggable="true"
                   @dragstart="handleDragStart($event, task)"
-                  @dragover.prevent
-                  @drop="handleDrop($event, column.id)"
+                  @dragend="handleDragEnd"
                 >
                   <div class="card-top">
                     <span class="priority-indicator" :class="task.priority"></span>
@@ -341,6 +344,10 @@ const creating = ref(false)
 const searchQuery = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
+
+// Drag and drop state
+const draggingTask = ref(null)
+const dragOverColumn = ref(null)
 
 const views = [
   { 
@@ -491,18 +498,47 @@ async function deleteTask(taskId) {
 
 // Drag & Drop
 function handleDragStart(e, task) {
+  draggingTask.value = task._id
+  e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer.setData('taskId', task._id)
   e.dataTransfer.setData('sourceColumnId', task.columnId)
 }
 
-async function handleDrop(e, targetColumnId) {
+function handleDragEnd() {
+  draggingTask.value = null
+  dragOverColumn.value = null
+}
+
+function handleColumnDragOver(e, columnId) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  dragOverColumn.value = columnId
+}
+
+function handleColumnDragLeave() {
+  dragOverColumn.value = null
+}
+
+async function handleColumnDrop(e, targetColumnId) {
+  e.preventDefault()
+  dragOverColumn.value = null
+  
   const taskId = e.dataTransfer.getData('taskId')
   const sourceColumnId = e.dataTransfer.getData('sourceColumnId')
   
-  if (sourceColumnId === targetColumnId) return
+  if (!taskId || sourceColumnId === targetColumnId) {
+    draggingTask.value = null
+    return
+  }
   
-  const columnTasks = getTasksByColumn(targetColumnId)
-  await projectStore.moveTask(taskId, targetColumnId, columnTasks.length)
+  try {
+    const columnTasks = getTasksByColumn(targetColumnId)
+    await projectStore.moveTask(taskId, targetColumnId, columnTasks.length)
+  } catch (err) {
+    console.error('Failed to move task:', err)
+  } finally {
+    draggingTask.value = null
+  }
 }
 </script>
 
@@ -930,6 +966,13 @@ async function handleDrop(e, targetColumnId) {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 320px);
+  transition: all 0.2s ease;
+}
+
+.board-column.drag-over {
+  border-color: var(--primary-500);
+  background: rgba(139, 92, 246, 0.05);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
 }
 
 .column-header {
@@ -989,6 +1032,11 @@ async function handleDrop(e, targetColumnId) {
 .board-card.selected {
   border-color: var(--primary-500);
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+}
+
+.board-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
 }
 
 .card-top {
