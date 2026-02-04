@@ -1,0 +1,17 @@
+{
+  "name": "task-management-system",
+  "version": "1.0.0",
+  "description": "Collaborative project management tool with real-time updates, drag-and-drop functionality, and team workspaces",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": ["task-management", "vue", "nodejs", "mongodb", "real-time"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
