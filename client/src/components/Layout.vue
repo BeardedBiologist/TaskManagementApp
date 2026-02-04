@@ -43,21 +43,144 @@
         </router-link>
       </nav>
 
-      <div class="sidebar-section" v-if="workspaceStore.workspaces.length">
+      <div class="sidebar-section workspace-section" v-if="workspaceStore.workspaces.length">
         <div class="section-header">
-          <span>Recent Workspaces</span>
+          <span>Workspaces</span>
         </div>
-        <div class="workspace-nav">
-          <router-link 
-            v-for="workspace in workspaceStore.workspaces.slice(0, 4)" 
+        <div class="workspace-tree">
+          <div 
+            v-for="workspace in workspaceStore.workspaces" 
             :key="workspace._id"
-            :to="`/workspaces/${workspace._id}`"
-            class="workspace-link"
-            :title="workspace.name"
+            class="workspace-item"
           >
-            <div class="workspace-dot" :style="{ background: generateColor(workspace.name) }"></div>
-            <span class="workspace-name">{{ workspace.name }}</span>
-          </router-link>
+            <!-- Workspace Header -->
+            <div class="tree-header">
+              <button 
+                class="tree-toggle"
+                :class="{ expanded: expandedWorkspaces.includes(workspace._id) }"
+                @click="toggleWorkspace(workspace._id)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+              <router-link 
+                :to="`/workspaces/${workspace._id}`"
+                class="tree-link"
+                :class="{ active: $route.params.id === workspace._id && !$route.params.projectId }"
+              >
+                <div class="workspace-dot" :style="{ background: generateColor(workspace.name) }"></div>
+                <span class="tree-name">{{ workspace.name }}</span>
+              </router-link>
+            </div>
+
+            <!-- Projects -->
+            <div v-if="expandedWorkspaces.includes(workspace._id)" class="tree-children">
+              <div
+                v-for="project in getWorkspaceProjects(workspace._id)"
+                :key="project._id"
+                class="project-item"
+              >
+                <!-- Project Header -->
+                <div class="tree-header">
+                  <button 
+                    class="tree-toggle small"
+                    :class="{ expanded: expandedProjects.includes(project._id) }"
+                    @click="toggleProject(project._id)"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </button>
+                  <router-link 
+                    :to="`/projects/${project._id}`"
+                    class="tree-link"
+                    :class="{ active: isProjectActive(project._id) }"
+                  >
+                    <div class="project-dot" :style="{ background: generateColor(project.name) }"></div>
+                    <span class="tree-name">{{ project.name }}</span>
+                  </router-link>
+                </div>
+
+                <!-- Project Contents: Pages & Tasks -->
+                <div v-if="expandedProjects.includes(project._id)" class="tree-children">
+                  <!-- Notes/Pages -->
+                  <div class="content-group">
+                    <div class="group-header">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      <span>Notes</span>
+                      <span v-if="getProjectPages(project._id).length > 0" class="count-badge">
+                        {{ getProjectPages(project._id).length }}
+                      </span>
+                      <button class="add-btn" @click.stop="createPage(project._id)">+</button>
+                    </div>
+                    <div class="group-items pages-list">
+                      <router-link
+                        v-for="page in getVisiblePages(project._id)"
+                        :key="page._id"
+                        :to="`/projects/${project._id}/pages/${page._id}`"
+                        class="child-link"
+                        :class="{ active: $route.params.pageId === page._id }"
+                      >
+                        <span class="page-icon">{{ page.icon || '📄' }}</span>
+                        <span class="child-name">{{ page.title || 'Untitled' }}</span>
+                      </router-link>
+                      <button
+                        v-if="showPagesExpand(project._id)"
+                        class="show-more-btn"
+                        @click.stop="togglePagesExpand(project._id)"
+                      >
+                        {{ isPagesExpanded(project._id) ? 'Show less' : `Show ${getProjectPages(project._id).length - 5} more` }}
+                      </button>
+                      <div v-if="getProjectPages(project._id).length === 0" class="empty-hint">
+                        No notes yet
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tasks -->
+                  <div class="content-group">
+                    <div class="group-header">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                      </svg>
+                      <span>Tasks</span>
+                    </div>
+                    <div class="group-items">
+                      <router-link
+                        :to="`/projects/${project._id}?view=board`"
+                        class="child-link"
+                        :class="{ active: $route.params.id === project._id && $route.query.view === 'board' }"
+                      >
+                        <span class="view-icon">📋</span>
+                        <span class="child-name">Board</span>
+                      </router-link>
+                      <router-link
+                        :to="`/projects/${project._id}?view=list`"
+                        class="child-link"
+                        :class="{ active: $route.params.id === project._id && $route.query.view === 'list' }"
+                      >
+                        <span class="view-icon">📑</span>
+                        <span class="child-name">List</span>
+                      </router-link>
+                      <router-link
+                        :to="`/projects/${project._id}?view=timeline`"
+                        class="child-link"
+                        :class="{ active: $route.params.id === project._id && $route.query.view === 'timeline' }"
+                      >
+                        <span class="view-icon">📅</span>
+                        <span class="child-name">Timeline</span>
+                      </router-link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -106,23 +229,135 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
+import { useProjectStore } from '../stores/project'
+import { usePageStore } from '../stores/page'
 import { useSocketStore } from '../stores/socket'
 import Notifications from './Notifications.vue'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
+const projectStore = useProjectStore()
+const pageStore = usePageStore()
 const socketStore = useSocketStore()
 
 const showUserMenu = ref(false)
 
+// Load expanded state from localStorage
+const savedExpandedWorkspaces = localStorage.getItem('expandedWorkspaces')
+const savedExpandedProjects = localStorage.getItem('expandedProjects')
+const savedExpandedPages = localStorage.getItem('expandedPages')
+const expandedWorkspaces = ref(savedExpandedWorkspaces ? JSON.parse(savedExpandedWorkspaces) : [])
+const expandedProjects = ref(savedExpandedProjects ? JSON.parse(savedExpandedProjects) : [])
+const expandedPages = ref(savedExpandedPages ? JSON.parse(savedExpandedPages) : [])
+
+// Save expanded state to localStorage when it changes
+watch(expandedWorkspaces, (val) => {
+  localStorage.setItem('expandedWorkspaces', JSON.stringify(val))
+}, { deep: true })
+
+watch(expandedProjects, (val) => {
+  localStorage.setItem('expandedProjects', JSON.stringify(val))
+}, { deep: true })
+
+watch(expandedPages, (val) => {
+  localStorage.setItem('expandedPages', JSON.stringify(val))
+}, { deep: true })
+
 onMounted(async () => {
   await workspaceStore.fetchWorkspaces()
+  await projectStore.fetchProjects()
+  // Load pages for all projects
+  for (const project of projectStore.projects) {
+    await pageStore.fetchPages(project._id)
+  }
 })
+
+function toggleWorkspace(workspaceId) {
+  const index = expandedWorkspaces.value.indexOf(workspaceId)
+  if (index === -1) {
+    expandedWorkspaces.value.push(workspaceId)
+  } else {
+    expandedWorkspaces.value.splice(index, 1)
+  }
+}
+
+function toggleProject(projectId) {
+  const index = expandedProjects.value.indexOf(projectId)
+  if (index === -1) {
+    expandedProjects.value.push(projectId)
+  } else {
+    expandedProjects.value.splice(index, 1)
+  }
+}
+
+function getWorkspaceProjects(workspaceId) {
+  return projectStore.projects.filter(p => p.workspace === workspaceId || p.workspace?._id === workspaceId)
+}
+
+function getProjectPages(projectId) {
+  return pageStore.pages.filter(p => p.project === projectId)
+}
+
+function getVisiblePages(projectId) {
+  const pages = getProjectPages(projectId)
+  if (pages.length <= 5 || isPagesExpanded(projectId)) {
+    return pages
+  }
+  // Show first 5, but always show active page if it's beyond 5
+  const visible = pages.slice(0, 5)
+  const activePageId = route.params.pageId
+  if (activePageId) {
+    const activePage = pages.find(p => p._id === activePageId)
+    if (activePage && !visible.includes(activePage)) {
+      visible.push(activePage)
+    }
+  }
+  return visible
+}
+
+function showPagesExpand(projectId) {
+  return getProjectPages(projectId).length > 5
+}
+
+function isPagesExpanded(projectId) {
+  return expandedPages.value.includes(projectId)
+}
+
+function togglePagesExpand(projectId) {
+  const index = expandedPages.value.indexOf(projectId)
+  if (index === -1) {
+    expandedPages.value.push(projectId)
+  } else {
+    expandedPages.value.splice(index, 1)
+  }
+}
+
+function isProjectActive(projectId) {
+  // Active when on project page (without pageId param) - includes board/list/timeline views
+  return route.params.id === projectId && !route.params.pageId
+}
+
+async function createPage(projectId) {
+  try {
+    const page = await pageStore.createPage({
+      project: projectId,
+      title: 'Untitled',
+      icon: '📄'
+    })
+    if (!expandedProjects.value.includes(projectId)) {
+      expandedProjects.value.push(projectId)
+    }
+    router.push(`/projects/${projectId}/pages/${page._id}`)
+  } catch (err) {
+    console.error('Failed to create page:', err)
+  }
+}
 
 function handleLogout() {
   authStore.logout()
@@ -258,40 +493,279 @@ function generateColor(str) {
   color: var(--text-tertiary);
 }
 
-.workspace-nav {
+/* Workspace/Project Tree */
+.workspace-tree {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.workspace-link {
+.workspace-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  gap: var(--space-1);
+}
+
+.tree-toggle {
+  width: 20px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: all 0.15s ease;
+}
+
+.tree-toggle:hover {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.tree-toggle svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s ease;
+}
+
+.tree-toggle.expanded svg {
+  transform: rotate(90deg);
+}
+
+.tree-toggle.small {
+  width: 18px;
+  height: 24px;
+}
+
+.tree-toggle.small svg {
+  width: 10px;
+  height: 10px;
+}
+
+.tree-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.875rem;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  min-width: 0;
 }
 
-.workspace-link:hover {
+.tree-link:hover {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.workspace-dot {
-  width: 8px;
-  height: 8px;
+.tree-link.active {
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
+  color: var(--text-primary);
+}
+
+.tree-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-dot,
+.project-dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.workspace-name {
+.tree-children {
+  margin-left: var(--space-3);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.project-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Content Groups (Notes, Tasks) */
+.content-group {
+  margin: var(--space-1) 0;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.group-header svg {
+  width: 10px;
+  height: 10px;
+}
+
+.group-header span {
+  flex: 1;
+}
+
+.add-btn {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.content-group:hover .add-btn {
+  opacity: 1;
+}
+
+.add-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.group-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.child-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  transition: all 0.15s ease;
+}
+
+.child-link:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.child-link.active {
+  background: var(--primary-500-alpha-10, rgba(139, 92, 246, 0.1));
+  color: var(--text-primary);
+}
+
+.page-icon,
+.view-icon {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.child-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.empty-hint {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Pages list with scroll and expand */
+.pages-list {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-tertiary) transparent;
+}
+
+.pages-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pages-list::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+.count-badge {
+  font-size: 0.625rem;
+  padding: 1px 5px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.show-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: var(--space-1);
+}
+
+.show-more-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+/* Workspace section scrollable */
+.workspace-section {
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-tertiary) transparent;
+}
+
+.workspace-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.workspace-section::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
 }
 
 .sidebar-footer {

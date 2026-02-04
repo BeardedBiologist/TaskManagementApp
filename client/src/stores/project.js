@@ -26,6 +26,18 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
+  async function fetchTasks() {
+    // Fetch all tasks for the user (for page tasks)
+    try {
+      const { data } = await api.get('/tasks')
+      tasks.value = data
+      return data
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err)
+      return []
+    }
+  }
+
   async function fetchProject(id) {
     loading.value = true
     error.value = null
@@ -176,6 +188,7 @@ export const useProjectStore = defineStore('project', () => {
     error,
     fetchProjects,
     fetchProject,
+    fetchTasks,
     createProject,
     updateProject,
     deleteProject,

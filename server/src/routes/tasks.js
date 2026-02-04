@@ -33,36 +33,58 @@ function sanitizeTask(task) {
 
 // Create task
 router.post('/', authenticate, [
-  body('title').trim().notEmpty(),
-  body('projectId').notEmpty(),
-  body('columnId').notEmpty()
+  body('title').trim().notEmpty()
 ], async (req, res, next) => {
   try {
-    const { title, description, projectId, columnId, assignees, priority, dueDate, labels } = req.body;
+    const { title, description, projectId, pageId, workspace, columnId, assignees, priority, dueDate, labels } = req.body;
 
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+    // Task can belong to either a project OR a page
+    let taskWorkspace = workspace;
+    let taskProject = null;
+    let taskPage = null;
+
+    if (projectId) {
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      
+      // Check access
+      const isMember = project.members.some(m => m.user.toString() === req.user._id.toString());
+      if (!isMember && project.createdBy.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      
+      taskProject = projectId;
+      taskWorkspace = project.workspace;
+    } else if (pageId) {
+      const Page = (await import('../models/Page.js')).default;
+      const page = await Page.findById(pageId);
+      if (!page) {
+        return res.status(404).json({ message: 'Page not found' });
+      }
+      taskPage = pageId;
+      taskWorkspace = page.workspace;
+    } else if (!workspace) {
+      return res.status(400).json({ message: 'Either projectId, pageId, or workspace is required' });
     }
 
-    // Check access
-    const isMember = project.members.some(m => m.user.toString() === req.user._id.toString());
-    if (!isMember && project.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Get max order in column (only for project tasks)
+    let order = 0;
+    if (taskProject) {
+      const maxOrderTask = await Task.findOne({ project: taskProject, columnId: columnId || 'todo' })
+        .sort({ order: -1 })
+        .limit(1);
+      order = maxOrderTask ? maxOrderTask.order + 1 : 0;
     }
-
-    // Get max order in column
-    const maxOrderTask = await Task.findOne({ project: projectId, columnId })
-      .sort({ order: -1 })
-      .limit(1);
-    const order = maxOrderTask ? maxOrderTask.order + 1 : 0;
 
     const task = await Task.create({
       title,
       description,
-      project: projectId,
-      workspace: project.workspace,
-      columnId,
+      project: taskProject,
+      page: taskPage,
+      workspace: taskWorkspace,
+      columnId: columnId || 'todo',
       order,
       assignees: assignees || [],
       priority: priority || 'medium',
@@ -73,11 +95,50 @@ router.post('/', authenticate, [
 
     await task.populate('assignees createdBy');
 
-    // Emit to project room
     const taskPayload = sanitizeTask(task);
-    req.io.to(`project:${projectId}`).emit('task-created', taskPayload);
+
+    // Emit to project room if it's a project task
+    if (taskProject) {
+      req.io.to(`project:${taskProject}`).emit('task-created', taskPayload);
+    }
 
     res.status(201).json(taskPayload);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get all tasks for current user
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const tasks = await Task.find({
+      $or: [
+        { createdBy: req.user._id },
+        { assignees: req.user._id }
+      ]
+    })
+    .populate('assignees', 'name email avatar')
+    .populate('createdBy', 'name email avatar')
+    .populate('project', 'name')
+    .populate('page', 'title icon')
+    .sort({ createdAt: -1 });
+
+    res.json(tasks.map(sanitizeTask));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get tasks for a page
+router.get('/page/:pageId', authenticate, async (req, res, next) => {
+  try {
+    const { pageId } = req.params;
+    const tasks = await Task.find({ page: pageId })
+      .populate('assignees', 'name email avatar')
+      .populate('createdBy', 'name email avatar')
+      .sort({ createdAt: -1 });
+
+    res.json(tasks.map(sanitizeTask));
   } catch (error) {
     next(error);
   }
