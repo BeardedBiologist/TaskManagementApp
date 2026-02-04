@@ -48,6 +48,36 @@
         </div>
       </div>
 
+      <!-- Time Tracking -->
+      <div class="section time-tracking-section">
+        <div class="time-tracker">
+          <div class="time-display">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="time-value">{{ formattedTime }}</span>
+          </div>
+          <button 
+            class="timer-btn"
+            :class="{ running: isTimerRunning }"
+            @click="toggleTimer"
+          >
+            <svg v-if="!isTimerRunning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="4" height="16"/>
+              <rect x="14" y="4" width="4" height="16"/>
+            </svg>
+            {{ isTimerRunning ? 'Stop' : 'Start' }}
+          </button>
+        </div>
+        <div v-if="task.timeTracking?.estimated" class="time-estimate">
+          Estimated: {{ formatDuration(task.timeTracking.estimated) }}
+        </div>
+      </div>
+
       <!-- Quick Properties -->
       <div class="properties-grid">
         <div class="property">
@@ -123,6 +153,77 @@
           <div class="edit-actions">
             <button class="btn btn-primary btn-sm" @click="saveDescription">Save</button>
             <button class="btn btn-ghost btn-sm" @click="cancelEditDescription">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attachments -->
+      <div class="section">
+        <h3 class="section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          Attachments ({{ task.attachments?.length || 0 }})
+        </h3>
+        
+        <!-- Drag & Drop Zone -->
+        <div 
+          class="drop-zone"
+          :class="{ dragging: isDraggingFile }"
+          @dragover.prevent="isDraggingFile = true"
+          @dragleave="isDraggingFile = false"
+          @drop="handleFileDrop"
+          @click="$refs.fileInput.click()"
+        >
+          <input 
+            ref="fileInput"
+            type="file" 
+            multiple 
+            style="display: none"
+            @change="handleFileSelect"
+          />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p>Drop files here or click to upload</p>
+          <span class="hint">Images, PDFs, docs up to 10MB</span>
+        </div>
+
+        <!-- File List -->
+        <div v-if="task.attachments?.length" class="attachments-list">
+          <div 
+            v-for="file in task.attachments" 
+            :key="file._id || file.id"
+            class="attachment-item"
+          >
+            <div class="file-icon" :class="getFileIconClass(file.type)">
+              <svg v-if="file.type?.startsWith('image')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <svg v-else-if="file.type?.includes('pdf')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="M9 13h6"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <div class="file-info">
+              <span class="file-name">{{ file.name }}</span>
+              <span class="file-size">{{ formatFileSize(file.size) }}</span>
+            </div>
+            <button class="remove-file" @click.stop="removeAttachment(file._id || file.id)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -263,7 +364,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { getInitials, formatTimeAgo } from '../utils/helpers'
 import api from '../utils/api'
@@ -282,6 +383,7 @@ const editingTitle = ref(false)
 const editingDescription = ref(false)
 const addingSubtask = ref(false)
 const addingComment = ref(false)
+const isDraggingFile = ref(false)
 
 // Values
 const editedTitle = ref(props.task.title)
@@ -295,6 +397,12 @@ const newComment = ref('')
 // Refs
 const titleInput = ref(null)
 const subtaskInput = ref(null)
+const fileInput = ref(null)
+
+// Time tracking
+const isTimerRunning = ref(false)
+const timerSeconds = ref(props.task.timeTracking?.spent || 0)
+const timerInterval = ref(null)
 
 const completedSubtasks = computed(() => {
   return props.task.subtasks?.filter(s => s.completed).length || 0
@@ -304,6 +412,72 @@ const subtaskProgress = computed(() => {
   if (!props.task.subtasks?.length) return 0
   return Math.round((completedSubtasks.value / props.task.subtasks.length) * 100)
 })
+
+const formattedTime = computed(() => {
+  const hours = Math.floor(timerSeconds.value / 3600)
+  const minutes = Math.floor((timerSeconds.value % 3600) / 60)
+  const seconds = timerSeconds.value % 60
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+})
+
+onMounted(() => {
+  // Restore timer state if it was running
+  if (props.task.timeTracking?.isRunning && props.task.timeTracking?.startedAt) {
+    const elapsed = Math.floor((Date.now() - new Date(props.task.timeTracking.startedAt)) / 1000)
+    timerSeconds.value = (props.task.timeTracking.spent || 0) + elapsed
+    startTimer()
+  }
+})
+
+onUnmounted(() => {
+  stopTimer()
+})
+
+function formatDuration(seconds) {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+function startTimer() {
+  isTimerRunning.value = true
+  timerInterval.value = setInterval(() => {
+    timerSeconds.value++
+  }, 1000)
+}
+
+function stopTimer() {
+  isTimerRunning.value = false
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+    timerInterval.value = null
+  }
+}
+
+async function toggleTimer() {
+  if (isTimerRunning.value) {
+    stopTimer()
+    // Save time to server
+    await emit('update', props.task._id, {
+      timeTracking: {
+        ...props.task.timeTracking,
+        spent: timerSeconds.value,
+        isRunning: false,
+        startedAt: null
+      }
+    })
+  } else {
+    startTimer()
+    await emit('update', props.task._id, {
+      timeTracking: {
+        ...props.task.timeTracking,
+        isRunning: true,
+        startedAt: new Date().toISOString()
+      }
+    })
+  }
+}
 
 function getColumnColor(columnId) {
   return props.columns.find(c => c.id === columnId)?.color || '#8b5cf6'
@@ -417,6 +591,81 @@ async function addComment() {
   }
 }
 
+// File attachments
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function getFileIconClass(type) {
+  if (type?.startsWith('image')) return 'image'
+  if (type?.includes('pdf')) return 'pdf'
+  return 'file'
+}
+
+async function handleFileDrop(e) {
+  e.preventDefault()
+  isDraggingFile.value = false
+  const files = Array.from(e.dataTransfer.files)
+  await uploadFiles(files)
+}
+
+async function handleFileSelect(e) {
+  const files = Array.from(e.target.files)
+  await uploadFiles(files)
+}
+
+async function uploadFiles(files) {
+  for (const file of files) {
+    if (file.size > 10 * 1024 * 1024) {
+      alert(`File ${file.name} is too large. Max size is 10MB.`)
+      continue
+    }
+
+    try {
+      // Convert to base64
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = e.target.result
+        
+        // Upload to server
+        const { data } = await api.post('/uploads', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data: base64
+        })
+
+        // Add to task
+        const attachments = [...(props.task.attachments || []), {
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          size: data.size,
+          uploadedBy: data.uploadedBy,
+          uploadedAt: data.uploadedAt
+        }]
+        
+        emit('update', props.task._id, { attachments })
+      }
+      reader.readAsDataURL(file)
+    } catch (err) {
+      console.error('Upload failed:', err)
+    }
+  }
+}
+
+async function removeAttachment(fileId) {
+  try {
+    await api.delete(`/uploads/${fileId}`)
+    const attachments = props.task.attachments.filter(a => (a._id || a.id) !== fileId)
+    emit('update', props.task._id, { attachments })
+  } catch (err) {
+    console.error('Failed to remove attachment:', err)
+  }
+}
+
 function confirmDelete() {
   if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
     emit('delete', props.task._id)
@@ -523,6 +772,77 @@ function confirmDelete() {
   background: var(--accent-emerald);
   border-radius: var(--radius-full);
   transition: width 0.3s ease;
+}
+
+/* Time Tracking */
+.time-tracking-section {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.time-tracker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.time-display {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.time-display svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary-400);
+}
+
+.time-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'SF Mono', monospace;
+  color: var(--text-primary);
+}
+
+.timer-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent-emerald);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timer-btn:hover {
+  background: #059669;
+}
+
+.timer-btn.running {
+  background: var(--accent-rose);
+}
+
+.timer-btn.running:hover {
+  background: #dc2626;
+}
+
+.timer-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.time-estimate {
+  margin-top: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
 }
 
 /* Title Section */
@@ -690,6 +1010,128 @@ function confirmDelete() {
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+/* Attachments */
+.drop-zone {
+  border: 2px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: var(--space-4);
+}
+
+.drop-zone:hover {
+  border-color: var(--primary-500);
+  background: rgba(139, 92, 246, 0.05);
+}
+
+.drop-zone.dragging {
+  border-color: var(--primary-500);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.drop-zone svg {
+  width: 32px;
+  height: 32px;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+.drop-zone p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.drop-zone .hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.file-icon.image {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--primary-400);
+}
+
+.file-icon.pdf {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--accent-rose);
+}
+
+.file-icon.file {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.file-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.remove-file {
+  padding: var(--space-1);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.remove-file:hover {
+  color: var(--accent-rose);
+}
+
+.remove-file svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Checklist */
