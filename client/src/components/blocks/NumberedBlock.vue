@@ -7,10 +7,9 @@
       contenteditable="true"
       dir="auto"
       @input="onInput"
-      @keydown="onKeydown"
+    @keydown="onKeydown"
       @compositionstart="onCompositionStart"
       @compositionend="onCompositionEnd"
-      v-html="sanitizedContent"
     />
   </div>
 </template>
@@ -20,7 +19,11 @@ import { ref, computed, nextTick, onMounted, watch } from 'vue'
 
 const props = defineProps({
   block: Object,
-  isSelected: Boolean
+  isSelected: Boolean,
+  number: {
+    type: Number,
+    default: 1
+  }
 })
 
 const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down'])
@@ -28,13 +31,16 @@ const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down'])
 const editor = ref(null)
 const isComposing = ref(false)
 
-const number = computed(() => props.block.number || 1)
+// const number = computed(() => props.block.number || 1) // Removed, using prop now
 
 const sanitizedContent = computed(() => {
   return props.block.content || ''
 })
 
 onMounted(() => {
+  if (editor.value) {
+    editor.value.innerText = sanitizedContent.value
+  }
   if (props.isSelected) {
     nextTick(() => {
       editor.value?.focus()
@@ -72,6 +78,10 @@ function onKeydown(e) {
 
   switch (e.key) {
     case 'Enter':
+      if (e.shiftKey) {
+        // Soft break, allow default behavior
+        return
+      }
       e.preventDefault()
       if (content === '') {
         emit('update', { type: 'text' })
@@ -146,5 +156,6 @@ function onCompositionEnd() {
 .numbered-content:empty::before {
   content: "List";
   color: var(--text-muted);
+  pointer-events: none;
 }
 </style>

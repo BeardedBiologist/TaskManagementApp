@@ -7,10 +7,9 @@
       contenteditable="true"
       dir="auto"
       @input="onInput"
-      @keydown="onKeydown"
+    @keydown="onKeydown"
       @compositionstart="onCompositionStart"
       @compositionend="onCompositionEnd"
-      v-html="sanitizedContent"
     />
   </div>
 </template>
@@ -33,6 +32,9 @@ const sanitizedContent = computed(() => {
 })
 
 onMounted(() => {
+  if (editor.value) {
+    editor.value.innerText = sanitizedContent.value
+  }
   if (props.isSelected) {
     nextTick(() => {
       editor.value?.focus()
@@ -70,6 +72,9 @@ function onKeydown(e) {
 
   switch (e.key) {
     case 'Enter':
+      if (e.shiftKey) {
+        return
+      }
       e.preventDefault()
       if (content === '') {
         emit('update', { type: 'text' })
@@ -143,5 +148,6 @@ function onCompositionEnd() {
 .bullet-content:empty::before {
   content: "List";
   color: var(--text-muted);
+  pointer-events: none;
 }
 </style>

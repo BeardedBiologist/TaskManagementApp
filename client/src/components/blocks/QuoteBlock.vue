@@ -8,7 +8,6 @@
     @keydown="onKeydown"
     @compositionstart="onCompositionStart"
     @compositionend="onCompositionEnd"
-    v-html="sanitizedContent"
   />
 </template>
 
@@ -30,6 +29,9 @@ const sanitizedContent = computed(() => {
 })
 
 onMounted(() => {
+  if (editor.value) {
+    editor.value.innerText = sanitizedContent.value
+  }
   if (props.isSelected) {
     nextTick(() => {
       editor.value?.focus()
@@ -67,6 +69,9 @@ function onKeydown(e) {
 
   switch (e.key) {
     case 'Enter':
+      if (e.shiftKey) {
+        return
+      }
       e.preventDefault()
       emit('enter', { before: content.substring(0, offset), after: content.substring(offset) })
       break
@@ -120,5 +125,6 @@ function onCompositionEnd() {
 .quote-block:empty::before {
   content: "Quote";
   color: var(--text-muted);
+  pointer-events: none;
 }
 </style>

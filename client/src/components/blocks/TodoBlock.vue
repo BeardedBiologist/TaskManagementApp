@@ -15,10 +15,9 @@
       contenteditable="true"
       dir="auto"
       @input="onInput"
-      @keydown="onKeydown"
+    @keydown="onKeydown"
       @compositionstart="onCompositionStart"
       @compositionend="onCompositionEnd"
-      v-html="sanitizedContent"
     />
   </div>
 </template>
@@ -41,6 +40,9 @@ const sanitizedContent = computed(() => {
 })
 
 onMounted(() => {
+  if (editor.value) {
+    editor.value.innerText = sanitizedContent.value
+  }
   if (props.isSelected) {
     nextTick(() => {
       editor.value?.focus()
@@ -82,6 +84,9 @@ function onKeydown(e) {
 
   switch (e.key) {
     case 'Enter':
+      if (e.shiftKey) {
+        return
+      }
       e.preventDefault()
       emit('enter', { before: content.substring(0, offset), after: content.substring(offset), type: 'todo' })
       break
@@ -197,5 +202,6 @@ function onCompositionEnd() {
 .todo-content:empty::before {
   content: "To-do";
   color: var(--text-muted);
+  pointer-events: none;
 }
 </style>
