@@ -6,13 +6,18 @@ export const useSocketStore = defineStore('socket', () => {
   const socket = ref(null)
   const connected = ref(false)
 
-  function connect() {
+  function connect(tokenOverride = null) {
     if (socket.value?.connected) return
 
-    const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const socketUrl = rawUrl.replace(/\/api\/?$/, '')
+    const token = tokenOverride || localStorage.getItem('token')
     socket.value = io(socketUrl, {
       transports: ['websocket'],
-      autoConnect: true
+      autoConnect: true,
+      auth: {
+        token
+      }
     })
 
     socket.value.on('connect', () => {
@@ -23,6 +28,10 @@ export const useSocketStore = defineStore('socket', () => {
     socket.value.on('disconnect', () => {
       console.log('Socket disconnected')
       connected.value = false
+    })
+
+    socket.value.on('connect_error', (error) => {
+      console.error('Socket connect error:', error?.message || error)
     })
 
     socket.value.on('error', (error) => {
@@ -39,27 +48,25 @@ export const useSocketStore = defineStore('socket', () => {
   }
 
   function joinWorkspace(workspaceId) {
-    if (socket.value?.connected) {
-      socket.value.emit('join-workspace', workspaceId)
+    if (!socket.value) {
+      connect()
     }
+    socket.value?.emit('join-workspace', workspaceId)
   }
 
   function leaveWorkspace(workspaceId) {
-    if (socket.value?.connected) {
-      socket.value.emit('leave-workspace', workspaceId)
-    }
+    socket.value?.emit('leave-workspace', workspaceId)
   }
 
   function joinProject(projectId) {
-    if (socket.value?.connected) {
-      socket.value.emit('join-project', projectId)
+    if (!socket.value) {
+      connect()
     }
+    socket.value?.emit('join-project', projectId)
   }
 
   function leaveProject(projectId) {
-    if (socket.value?.connected) {
-      socket.value.emit('leave-project', projectId)
-    }
+    socket.value?.emit('leave-project', projectId)
   }
 
   function on(event, callback) {
@@ -75,9 +82,10 @@ export const useSocketStore = defineStore('socket', () => {
   }
 
   function emit(event, data) {
-    if (socket.value?.connected) {
-      socket.value.emit(event, data)
+    if (!socket.value) {
+      connect()
     }
+    socket.value?.emit(event, data)
   }
 
   return {

@@ -1,13 +1,13 @@
 <template>
   <div class="activity-feed" :class="{ compact, expanded }">
-    <div class="feed-header">
+    <div v-if="showHeader" class="feed-header">
       <h4>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         Activity
       </h4>
-      <button v-if="expanded" class="close-btn" @click="$emit('close')">
+      <button v-if="expanded || showClose" class="close-btn" @click="$emit('close')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
@@ -36,10 +36,13 @@
           </div>
           <div class="activity-content">
             <p class="activity-text">
-              <strong>{{ activity.user?.name || 'Someone' }}</strong>
+              <strong>{{ getUserDisplayName(activity.user) }}</strong>
               {{ getActivityDescription(activity) }}
               <span v-if="activity.targetName" class="activity-target">
                 {{ activity.targetName }}
+              </span>
+              <span v-if="activity.count && activity.count > 1" class="activity-count">
+                ×{{ activity.count }}
               </span>
             </p>
             <time class="activity-time">{{ formatTime(activity.timestamp) }}</time>
@@ -94,6 +97,14 @@ const props = defineProps({
   limit: {
     type: Number,
     default: null
+  },
+  showHeader: {
+    type: Boolean,
+    default: true
+  },
+  showClose: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -101,22 +112,67 @@ defineEmits(['load-more', 'close'])
 
 const displayedActivities = computed(() => {
   if (props.limit && !props.expanded) {
-    return props.activities.slice(0, props.limit)
+    return normalizeActivities(props.activities.slice(0, props.limit))
   }
-  return props.activities
+  return normalizeActivities(props.activities)
 })
+
+function getUserDisplayName(user) {
+  if (!user) return 'Someone'
+  const name = user.name ?? user
+  if (typeof name === 'string') {
+    const looksLikeId = /^[0-9a-f]{24}$/i.test(name.trim())
+    return looksLikeId ? 'Someone' : name
+  }
+  if (name && (name.first || name.last)) {
+    return `${name.first || ''} ${name.last || ''}`.trim() || 'Someone'
+  }
+  return 'Someone'
+}
 
 function getInitials(name) {
   if (!name) return '?'
+  if (typeof name !== 'string') {
+    if (typeof name?.first === 'string' || typeof name?.last === 'string') {
+      const first = name.first || ''
+      const last = name.last || ''
+      return `${first[0] || ''}${last[0] || ''}`.toUpperCase() || '?'
+    }
+    return '?'
+  }
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
 function getActivityDescription(activity) {
+  if (activity.type === 'task.moved') {
+    const fromName = activity.metadata?.fromName || activity.metadata?.from
+    const toName = activity.metadata?.toName || activity.metadata?.to
+    if (fromName && toName) {
+      return `moved task from ${fromName} to ${toName}`
+    }
+    return 'moved task'
+  }
+
+  if (activity.type === 'task.updated' && activity.metadata?.changes?.length) {
+    return `updated task ${formatTaskChanges(activity.metadata.changes)}`
+  }
+
+  if (activity.type === 'whiteboard.element.added') {
+    const typeLabel = activity.metadata?.elementType ? ` ${formatElementType(activity.metadata.elementType)}` : ''
+    return `added${typeLabel} to whiteboard`
+  }
+  if (activity.type === 'whiteboard.element.updated') {
+    const typeLabel = activity.metadata?.elementType ? ` ${formatElementType(activity.metadata.elementType)}` : ''
+    return `updated${typeLabel} on whiteboard`
+  }
+  if (activity.type === 'whiteboard.element.deleted') {
+    return 'removed item from whiteboard'
+  }
+
   const descriptions = {
     'task.created': 'created task',
     'task.updated': 'updated task',
     'task.deleted': 'deleted task',
-    'task.moved': 'moved task',
     'task.assigned': 'assigned task to',
     'task.comment.added': 'commented on',
     'task.comment.deleted': 'deleted comment on',
@@ -133,6 +189,67 @@ function getActivityDescription(activity) {
     'user.joined': 'joined'
   }
   return descriptions[activity.type] || 'performed action'
+}
+
+function formatElementType(type) {
+  const label = type.replace(/_/g, ' ').toLowerCase()
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+function formatTaskChanges(changes) {
+  const parts = []
+  changes.forEach(change => {
+    const field = change.field
+    if (Object.prototype.hasOwnProperty.call(change, 'from') || Object.prototype.hasOwnProperty.call(change, 'to')) {
+      const from = formatChangeValue(change.from)
+      const to = formatChangeValue(change.to)
+      parts.push(`${field}: ${from ?? '—'} → ${to ?? '—'}`)
+      return
+    }
+    if (change.added || change.removed || change.toggled) {
+      const detailParts = []
+      if (change.added?.length) detailParts.push(`+${change.added.join(', ')}`)
+      if (change.removed?.length) detailParts.push(`-${change.removed.join(', ')}`)
+      if (change.toggled?.length) {
+        const toggles = change.toggled.map(item => `${item.completed ? '✓' : '☐'} ${item.title}`)
+        detailParts.push(toggles.join(', '))
+      }
+      if (detailParts.length) {
+        parts.push(`${field}: ${detailParts.join(' | ')}`)
+      }
+    }
+  })
+  return parts.length ? `(${parts.join(' · ')})` : ''
+}
+
+function formatChangeValue(value) {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'number') return value.toString()
+  if (typeof value === 'string') return value
+  return JSON.stringify(value)
+}
+
+function normalizeActivities(items) {
+  const consolidated = []
+  const windowMs = 10 * 60 * 1000
+
+  for (const activity of items) {
+    const last = consolidated[consolidated.length - 1]
+    const sameActor = last && (last.user?._id || last.userId) === (activity.user?._id || activity.userId)
+    const sameTarget = last && last.targetId === activity.targetId && last.targetName === activity.targetName
+    const sameType = last && last.type === activity.type
+    const withinWindow = last && Math.abs(new Date(last.timestamp) - new Date(activity.timestamp)) <= windowMs
+
+    if (last && sameActor && sameTarget && sameType && withinWindow) {
+      last.count = (last.count || 1) + 1
+      continue
+    }
+
+    consolidated.push({ ...activity })
+  }
+
+  return consolidated
 }
 
 function getActivityIcon(type) {
@@ -182,10 +299,13 @@ function formatTime(timestamp) {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .activity-feed.compact {
-  max-height: 300px;
+  max-height: none;
 }
 
 .activity-feed.expanded {
@@ -249,11 +369,12 @@ function formatTime(timestamp) {
 .feed-content {
   padding: var(--space-2);
   overflow-y: auto;
-  max-height: 250px;
+  max-height: none;
+  flex: 1;
 }
 
 .activity-feed.expanded .feed-content {
-  max-height: calc(100vh - 60px);
+  max-height: none;
 }
 
 .feed-loading,
@@ -309,6 +430,12 @@ function formatTime(timestamp) {
 .activity-text strong {
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.activity-count {
+  margin-left: var(--space-2);
+  font-weight: 600;
+  color: var(--text-tertiary);
 }
 
 .activity-target {

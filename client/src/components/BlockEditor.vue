@@ -773,4 +773,120 @@ function isInRange(index) {
 .placeholder {
   font-size: 16px;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 1023px) {
+  .block-wrapper {
+    padding: 4px 32px 4px 28px;
+  }
+  
+  .block-wrapper::before {
+    left: 0;
+    width: 0;
+  }
+  
+  .block-handle {
+    left: 4px;
+    top: 4px;
+    width: 18px;
+    height: 18px;
+    opacity: 0.4;
+  }
+  
+  .block-handle svg {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .add-block-btn {
+    left: 4px;
+    top: auto;
+    bottom: 4px;
+    transform: none;
+    width: 18px;
+    height: 18px;
+    opacity: 0.4;
+  }
+  
+  .add-block-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .block-actions {
+    right: 4px;
+    top: 4px;
+    opacity: 0.6;
+  }
+  
+  .block-action-btn {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .block-action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+@media (max-width: 767px) {
+  .block-wrapper {
+    padding: 4px 28px 4px 24px;
+  }
+  
+  .block-handle {
+    left: 2px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .block-handle svg {
+    width: 7px;
+    height: 7px;
+  }
+  
+  .add-block-btn {
+    left: 2px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .block-actions {
+    right: 2px;
+    gap: 2px;
+  }
+  
+  .block-action-btn {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .block-action-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+  
+  .placeholder {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 479px) {
+  .block-wrapper {
+    padding: 4px 0 4px 20px;
+  }
+  
+  .block-actions {
+    display: none;
+  }
+  
+  .block-wrapper.is-selected .block-actions {
+    display: flex;
+    position: static;
+    margin-top: 4px;
+    margin-left: -20px;
+    opacity: 1;
+  }
+}
 </style>

@@ -2,6 +2,9 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import User from '../models/User.js';
 import { generateToken } from '../utils/generateToken.js';
+import Workspace from '../models/Workspace.js';
+import WorkspaceInvite from '../models/WorkspaceInvite.js';
+import Project from '../models/Project.js';
 
 const router = express.Router();
 
@@ -32,6 +35,38 @@ router.post('/register', [
       name: { first: firstName, last: lastName },
       ...(timezone ? { settings: { timezone } } : {})
     });
+
+    // Attach any pending workspace invites by email
+    const pendingInvites = await WorkspaceInvite.find({ email: email.toLowerCase().trim(), status: 'pending' });
+    for (const invite of pendingInvites) {
+      const workspace = await Workspace.findById(invite.workspace);
+      if (!workspace) continue;
+
+      const alreadyMember = workspace.members.some(m => m.user.toString() === user._id.toString());
+      if (!alreadyMember) {
+        workspace.members.push({ user: user._id, role: invite.role || 'member' });
+        await workspace.save();
+      }
+
+      const alreadyLinked = user.workspaces?.some(w => w.workspace.toString() === workspace._id.toString());
+      if (!alreadyLinked) {
+        user.workspaces = user.workspaces || [];
+        user.workspaces.push({ workspace: workspace._id, role: invite.role || 'member' });
+      }
+
+      // Add user to all existing projects in this workspace
+      await Project.updateMany(
+        { workspace: workspace._id, 'members.user': { $ne: user._id } },
+        { $push: { members: { user: user._id, role: invite.role || 'member' } } }
+      );
+
+      invite.status = 'accepted';
+      await invite.save();
+    }
+
+    if (pendingInvites.length > 0) {
+      await user.save();
+    }
 
     const token = generateToken(user._id);
 

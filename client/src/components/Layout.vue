@@ -1,8 +1,15 @@
 <template>
-  <div class="layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <router-link to="/dashboard" class="sidebar-brand">
+  <div class="layout" :class="{ minimal }">
+    <!-- Mobile Header -->
+    <header v-if="!minimal" class="mobile-header">
+      <button class="hamburger-btn" @click="showMobileSidebar = true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <router-link to="/dashboard" class="mobile-brand">
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
@@ -10,48 +17,69 @@
         </div>
         <span class="brand-text">Orbit</span>
       </router-link>
+      <div class="mobile-actions">
+        <Notifications />
+      </div>
+    </header>
+
+    <!-- Desktop Sidebar -->
+    <aside v-if="!minimal" class="sidebar" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+      <router-link to="/dashboard" class="sidebar-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="brand-text" v-if="!sidebarCollapsed">Orbit</span>
+      </router-link>
+
+      <button class="collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? 'Expand' : 'Collapse'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ 'rotate-180': sidebarCollapsed }">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
 
       <nav class="sidebar-nav">
-        <router-link to="/dashboard" class="nav-item" :class="{ active: $route.path === '/dashboard' }">
+        <router-link to="/dashboard" class="nav-item" :class="{ active: $route.path === '/dashboard', collapsed: sidebarCollapsed }" :title="sidebarCollapsed ? 'Dashboard' : ''">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"/>
             <rect x="14" y="3" width="7" height="7"/>
             <rect x="14" y="14" width="7" height="7"/>
             <rect x="3" y="14" width="7" height="7"/>
           </svg>
-          <span>Dashboard</span>
+          <span v-if="!sidebarCollapsed">Dashboard</span>
         </router-link>
 
-        <router-link to="/workspaces" class="nav-item" :class="{ active: $route.path.startsWith('/workspaces') }">
+        <router-link to="/workspaces" class="nav-item" :class="{ active: $route.path.startsWith('/workspaces'), collapsed: sidebarCollapsed }" :title="sidebarCollapsed ? 'Workspaces' : ''">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
             <circle cx="9" cy="7" r="4"/>
             <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
-          <span>Workspaces</span>
+          <span v-if="!sidebarCollapsed">Workspaces</span>
         </router-link>
 
-        <router-link to="/calendar" class="nav-item" :class="{ active: $route.path === '/calendar' }">
+        <router-link to="/calendar" class="nav-item" :class="{ active: $route.path === '/calendar', collapsed: sidebarCollapsed }" :title="sidebarCollapsed ? 'Calendar' : ''">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <span>Calendar</span>
+          <span v-if="!sidebarCollapsed">Calendar</span>
         </router-link>
         
-        <router-link to="/activity" class="nav-item" :class="{ active: $route.path === '/activity' }">
+        <router-link to="/activity" class="nav-item" :class="{ active: $route.path === '/activity', collapsed: sidebarCollapsed }" :title="sidebarCollapsed ? 'Activity' : ''">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
-          <span>Activity</span>
+          <span v-if="!sidebarCollapsed">Activity</span>
         </router-link>
         
       </nav>
 
-      <div class="sidebar-section workspace-section" v-if="workspaceStore.workspaces.length">
+      <div class="sidebar-section workspace-section" v-if="!sidebarCollapsed && workspaceStore.workspaces.length">
         <div class="section-header">
           <span>Workspaces</span>
         </div>
@@ -263,7 +291,7 @@
         </div>
       </div>
 
-      <div class="sidebar-footer">
+      <div class="sidebar-footer" v-if="!sidebarCollapsed">
         <div class="header-actions">
           <Notifications />
         </div>
@@ -298,12 +326,196 @@
           </button>
         </div>
       </div>
+
+      <!-- Collapsed sidebar footer -->
+      <div class="sidebar-footer-collapsed" v-else>
+        <button class="avatar-btn" @click="handleLogout" title="Sign out">
+          <div class="avatar">{{ authStore.userInitials }}</div>
+        </button>
+      </div>
     </aside>
 
+    <!-- Mobile Sidebar Drawer -->
+    <Teleport v-if="!minimal" to="body">
+      <Transition name="fade">
+        <div v-if="showMobileSidebar" class="mobile-overlay" @click="showMobileSidebar = false"></div>
+      </Transition>
+      <Transition name="slide-right">
+        <aside v-if="showMobileSidebar" class="mobile-sidebar">
+          <div class="mobile-sidebar-header">
+            <router-link to="/dashboard" class="mobile-brand" @click="showMobileSidebar = false">
+              <div class="brand-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <span class="brand-text">Orbit</span>
+            </router-link>
+            <button class="close-btn" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <nav class="mobile-nav">
+            <router-link to="/dashboard" class="nav-item" :class="{ active: $route.path === '/dashboard' }" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+              </svg>
+              <span>Dashboard</span>
+            </router-link>
+
+            <router-link to="/workspaces" class="nav-item" :class="{ active: $route.path.startsWith('/workspaces') }" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span>Workspaces</span>
+            </router-link>
+
+            <router-link to="/calendar" class="nav-item" :class="{ active: $route.path === '/calendar' }" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Calendar</span>
+            </router-link>
+            
+            <router-link to="/activity" class="nav-item" :class="{ active: $route.path === '/activity' }" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              <span>Activity</span>
+            </router-link>
+          </nav>
+
+          <div class="mobile-sidebar-section" v-if="workspaceStore.workspaces.length">
+            <div class="section-header">Workspaces</div>
+            <div class="mobile-workspace-list">
+              <div 
+                v-for="workspace in workspaceStore.workspaces" 
+                :key="workspace._id"
+                class="mobile-workspace-item"
+              >
+                <div class="mobile-workspace-header" @click="toggleMobileWorkspace(workspace._id)">
+                  <div class="workspace-link">
+                    <div class="workspace-dot" :style="{ background: generateColor(workspace.name) }"></div>
+                    <span>{{ workspace.name }}</span>
+                  </div>
+                  <svg class="chevron" :class="{ open: expandedMobileWorkspaces.includes(workspace._id) }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+                <div v-if="expandedMobileWorkspaces.includes(workspace._id)" class="mobile-project-list">
+                  <div
+                    v-for="project in getWorkspaceProjects(workspace._id)"
+                    :key="project._id"
+                    class="mobile-project-row"
+                  >
+                    <div class="mobile-project-header" @click="toggleMobileProject(project._id)">
+                      <div class="project-link">
+                        <div class="project-dot" :style="{ background: generateColor(project.name) }"></div>
+                        <span>{{ project.name }}</span>
+                      </div>
+                      <svg class="chevron" :class="{ open: expandedMobileProjects.includes(project._id) }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </div>
+                    <div v-if="expandedMobileProjects.includes(project._id)" class="mobile-project-children">
+                      <div class="mobile-section-label">Notes</div>
+                      <router-link
+                        v-for="page in getProjectPages(project._id)"
+                        :key="page._id"
+                        :to="`/projects/${project._id}/pages/${page._id}`"
+                        class="mobile-child-link"
+                        @click="showMobileSidebar = false"
+                      >
+                        <span class="page-icon">{{ page.icon || '📄' }}</span>
+                        <span>{{ page.title || 'Untitled' }}</span>
+                      </router-link>
+                      <div class="mobile-section-label">Tasks</div>
+                      <router-link
+                        :to="`/projects/${project._id}?view=board`"
+                        class="mobile-child-link"
+                        @click="showMobileSidebar = false"
+                      >
+                        <span class="view-icon">📋</span>
+                        <span>Board</span>
+                      </router-link>
+                      <router-link
+                        :to="`/projects/${project._id}?view=list`"
+                        class="mobile-child-link"
+                        @click="showMobileSidebar = false"
+                      >
+                        <span class="view-icon">📑</span>
+                        <span>List</span>
+                      </router-link>
+                      <router-link
+                        :to="`/projects/${project._id}?view=timeline`"
+                        class="mobile-child-link"
+                        @click="showMobileSidebar = false"
+                      >
+                        <span class="view-icon">📅</span>
+                        <span>Timeline</span>
+                      </router-link>
+                      <div class="mobile-section-label">Whiteboards</div>
+                      <router-link
+                        v-for="board in getProjectWhiteboards(project._id)"
+                        :key="board._id"
+                        :to="`/projects/${project._id}?view=whiteboard&id=${board._id}`"
+                        class="mobile-child-link"
+                        @click="showMobileSidebar = false"
+                      >
+                        <span class="page-icon">🧩</span>
+                        <span>{{ board.name || 'Untitled' }}</span>
+                      </router-link>
+                      <div v-if="getProjectWhiteboards(project._id).length === 0" class="mobile-empty">
+                        No whiteboards yet
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mobile-sidebar-footer">
+            <div class="mobile-user-info">
+              <div class="avatar">{{ authStore.userInitials }}</div>
+              <div class="user-details">
+                <span class="user-name">{{ authStore.userName }}</span>
+                <span class="user-role">{{ authStore.user?.role }}</span>
+              </div>
+            </div>
+            <button class="logout-btn" @click="handleLogout">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sign out
+            </button>
+          </div>
+        </aside>
+      </Transition>
+    </Teleport>
+
     <!-- Main content -->
-    <main class="main">
+    <main class="main" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
       <slot />
     </main>
+
+    <!-- Mobile Bottom Navigation -->
+    <MobileNav v-if="!minimal" />
   </div>
 </template>
 
@@ -317,6 +529,7 @@ import { usePageStore } from '../stores/page'
 import { useSocketStore } from '../stores/socket'
 import api from '../utils/api'
 import Notifications from './Notifications.vue'
+import MobileNav from './MobileNav.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -326,11 +539,27 @@ const projectStore = useProjectStore()
 const pageStore = usePageStore()
 const socketStore = useSocketStore()
 
+const props = defineProps({
+  minimal: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const showUserMenu = ref(false)
+const showMobileSidebar = ref(false)
+const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
 const whiteboardsByProject = ref({})
 const allTasks = ref([])
 const editingPageId = ref(null)
 const editingPageTitle = ref('')
+const expandedMobileWorkspaces = ref([])
+const expandedMobileProjects = ref([])
+
+// Watch sidebar collapsed state
+watch(sidebarCollapsed, (val) => {
+  localStorage.setItem('sidebarCollapsed', val)
+})
 
 // Load expanded state from localStorage
 const savedExpandedWorkspaces = localStorage.getItem('expandedWorkspaces')
@@ -370,6 +599,24 @@ function toggleWorkspace(workspaceId) {
     expandedWorkspaces.value.push(workspaceId)
   } else {
     expandedWorkspaces.value.splice(index, 1)
+  }
+}
+
+function toggleMobileWorkspace(workspaceId) {
+  const index = expandedMobileWorkspaces.value.indexOf(workspaceId)
+  if (index === -1) {
+    expandedMobileWorkspaces.value.push(workspaceId)
+  } else {
+    expandedMobileWorkspaces.value.splice(index, 1)
+  }
+}
+
+function toggleMobileProject(projectId) {
+  const index = expandedMobileProjects.value.indexOf(projectId)
+  if (index === -1) {
+    expandedMobileProjects.value.push(projectId)
+  } else {
+    expandedMobileProjects.value.splice(index, 1)
   }
 }
 
@@ -560,6 +807,68 @@ function generateColor(str) {
   background: var(--bg-primary);
 }
 
+/* Mobile Header */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  z-index: 100;
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+.hamburger-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.hamburger-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-decoration: none;
+}
+
+.mobile-brand .brand-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.mobile-brand .brand-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-brand .brand-text {
+  font-size: 1.25rem;
+}
+
+.mobile-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* Desktop Sidebar */
 .sidebar {
   width: 260px;
   background: var(--bg-secondary);
@@ -569,6 +878,11 @@ function generateColor(str) {
   position: fixed;
   height: 100vh;
   z-index: 100;
+  transition: width 0.3s ease;
+}
+
+.sidebar.sidebar-collapsed {
+  width: 64px;
 }
 
 .sidebar-brand {
@@ -581,6 +895,11 @@ function generateColor(str) {
   cursor: pointer;
 }
 
+.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
 .brand-icon {
   width: 36px;
   height: 36px;
@@ -590,6 +909,7 @@ function generateColor(str) {
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
 }
 
 .brand-icon svg {
@@ -604,6 +924,45 @@ function generateColor(str) {
   background: linear-gradient(135deg, var(--text-primary), var(--primary-400));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.collapse-btn {
+  position: absolute;
+  top: var(--space-5);
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.sidebar:hover .collapse-btn {
+  opacity: 1;
+}
+
+.collapse-btn:hover {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+  color: white;
+}
+
+.collapse-btn svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.3s ease;
+}
+
+.collapse-btn svg.rotate-180 {
+  transform: rotate(180deg);
 }
 
 .sidebar-nav {
@@ -626,11 +985,17 @@ function generateColor(str) {
   transition: all 0.2s ease;
 }
 
+.nav-item.collapsed {
+  justify-content: center;
+  padding: var(--space-3);
+}
+
 .nav-item svg {
   width: 18px;
   height: 18px;
   opacity: 0.7;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -1025,6 +1390,20 @@ function generateColor(str) {
   gap: var(--space-3);
 }
 
+.sidebar-footer-collapsed {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 .header-actions {
   display: flex;
   justify-content: flex-end;
@@ -1137,5 +1516,277 @@ function generateColor(str) {
   margin-left: 260px;
   min-height: 100vh;
   overflow: auto;
+  transition: margin-left 0.3s ease;
+}
+
+.main.sidebar-collapsed {
+  margin-left: 64px;
+}
+
+.layout.minimal .main {
+  margin-left: 0;
+}
+
+/* Mobile Sidebar */
+.mobile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background: var(--bg-secondary);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.close-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-nav {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mobile-nav .nav-item {
+  padding: var(--space-3) var(--space-4);
+}
+
+.mobile-sidebar-section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.mobile-workspace-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mobile-workspace-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.mobile-workspace-header,
+.mobile-project-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  cursor: pointer;
+}
+
+.mobile-workspace-header .workspace-link,
+.mobile-project-header .project-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.mobile-project-row {
+  margin-left: var(--space-2);
+}
+
+.mobile-project-children {
+  margin-left: var(--space-4);
+  margin-top: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-child-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 0;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.8125rem;
+}
+
+.mobile-child-link:hover {
+  color: var(--text-primary);
+}
+
+.mobile-section-label {
+  margin-top: var(--space-2);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.mobile-empty {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+  padding: 2px 0;
+}
+
+.mobile-workspace-header .chevron,
+.mobile-project-header .chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.mobile-workspace-header .chevron.open,
+.mobile-project-header .chevron.open {
+  transform: rotate(180deg);
+}
+
+.mobile-sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mobile-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--accent-rose);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.logout-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(-100%);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1023px) {
+  .sidebar {
+    display: none;
+  }
+  
+  .mobile-header {
+    display: flex;
+  }
+  
+  .main {
+    margin-left: 0;
+    padding-top: 56px;
+    padding-bottom: 64px;
+    min-height: calc(100vh - 56px);
+  }
+  
+  .main.sidebar-collapsed {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .mobile-header {
+    height: 52px;
+  }
+  
+  .main {
+    padding-top: 52px;
+  }
+}
+
+/* Hide mobile nav on desktop */
+@media (min-width: 1024px) {
+  :deep(.mobile-nav) {
+    display: none !important;
+  }
 }
 </style>

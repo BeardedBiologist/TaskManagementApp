@@ -8,6 +8,8 @@ import { Server } from 'socket.io';
 import connectDB from './utils/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import jwt from 'jsonwebtoken';
+import Whiteboard from './models/Whiteboard.js';
+import Activity from './models/Activity.js';
 
 // Route imports
 import authRoutes from './routes/auth.js';
@@ -88,9 +90,31 @@ io.use(async (socket, next) => {
 
 // Track connected users per room
 const roomUsers = new Map();
+const whiteboardActivityThrottle = new Map();
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id, 'User:', socket.userId);
+
+  // ===== BASIC ROOMS (PROJECT / WORKSPACE) =====
+  socket.on('join-project', (projectId) => {
+    if (!projectId) return;
+    socket.join(`project:${projectId}`);
+  });
+
+  socket.on('leave-project', (projectId) => {
+    if (!projectId) return;
+    socket.leave(`project:${projectId}`);
+  });
+
+  socket.on('join-workspace', (workspaceId) => {
+    if (!workspaceId) return;
+    socket.join(`workspace:${workspaceId}`);
+  });
+
+  socket.on('leave-workspace', (workspaceId) => {
+    if (!workspaceId) return;
+    socket.leave(`workspace:${workspaceId}`);
+  });
 
   // ===== PRESENCE & CURSORS =====
   
@@ -193,37 +217,125 @@ io.on('connection', (socket) => {
   // ===== WHITEBOARD REAL-TIME =====
   
   // Element added
-  socket.on('whiteboard-element-add', (data) => {
-    const { whiteboardId, element } = data;
-    const roomName = `whiteboard:${whiteboardId}`;
-    socket.to(roomName).emit('whiteboard-element-added', {
-      element,
-      userId: socket.userId,
-      timestamp: new Date()
-    });
+  socket.on('whiteboard-element-add', async (data) => {
+    try {
+      const { whiteboardId, element } = data;
+      const roomName = `whiteboard:${whiteboardId}`;
+
+      const whiteboard = await Whiteboard.findById(whiteboardId);
+      if (whiteboard) {
+        element.createdBy = socket.userId;
+        whiteboard.elements.push(element);
+        whiteboard.lastModifiedBy = socket.userId;
+        whiteboard.lastModifiedAt = new Date();
+        await whiteboard.save();
+
+        const activity = await Activity.log({
+          type: 'whiteboard.element.added',
+          user: socket.userId,
+          workspace: whiteboard.workspace,
+          project: whiteboard.project,
+          targetType: 'whiteboard',
+          targetId: whiteboard._id,
+          targetName: whiteboard.name,
+          metadata: { elementId: element.id, elementType: element.type }
+        });
+        io.to(`project:${whiteboard.project}`).emit('activity', activity);
+      }
+
+      socket.to(roomName).emit('whiteboard-element-added', {
+        element,
+        userId: socket.userId,
+        timestamp: new Date()
+      });
+    } catch (err) {
+      console.error('Whiteboard element add failed:', err.message);
+    }
   });
 
   // Element updated
-  socket.on('whiteboard-element-update', (data) => {
-    const { whiteboardId, elementId, updates } = data;
-    const roomName = `whiteboard:${whiteboardId}`;
-    socket.to(roomName).emit('whiteboard-element-updated', {
-      elementId,
-      updates,
-      userId: socket.userId,
-      timestamp: new Date()
-    });
+  socket.on('whiteboard-element-update', async (data) => {
+    try {
+      const { whiteboardId, elementId, updates } = data;
+      const roomName = `whiteboard:${whiteboardId}`;
+
+      const whiteboard = await Whiteboard.findById(whiteboardId);
+      if (whiteboard) {
+        const element = whiteboard.elements.find(el => el.id === elementId);
+        if (element) {
+          Object.assign(element, updates, { updatedAt: new Date() });
+          whiteboard.lastModifiedBy = socket.userId;
+          whiteboard.lastModifiedAt = new Date();
+          await whiteboard.save();
+
+          const throttleKey = `${socket.userId}:${whiteboardId}`;
+          const now = Date.now();
+          const lastLoggedAt = whiteboardActivityThrottle.get(throttleKey) || 0;
+          if (now - lastLoggedAt > 5000) {
+            const activity = await Activity.log({
+              type: 'whiteboard.element.updated',
+              user: socket.userId,
+              workspace: whiteboard.workspace,
+              project: whiteboard.project,
+              targetType: 'whiteboard',
+              targetId: whiteboard._id,
+              targetName: whiteboard.name,
+              metadata: { elementId, elementType: element.type }
+            });
+            io.to(`project:${whiteboard.project}`).emit('activity', activity);
+            whiteboardActivityThrottle.set(throttleKey, now);
+          }
+        }
+      }
+
+      socket.to(roomName).emit('whiteboard-element-updated', {
+        elementId,
+        updates,
+        userId: socket.userId,
+        timestamp: new Date()
+      });
+    } catch (err) {
+      console.error('Whiteboard element update failed:', err.message);
+    }
   });
 
   // Element deleted
-  socket.on('whiteboard-element-delete', (data) => {
-    const { whiteboardId, elementId } = data;
-    const roomName = `whiteboard:${whiteboardId}`;
-    socket.to(roomName).emit('whiteboard-element-deleted', {
-      elementId,
-      userId: socket.userId,
-      timestamp: new Date()
-    });
+  socket.on('whiteboard-element-delete', async (data) => {
+    try {
+      const { whiteboardId, elementId } = data;
+      const roomName = `whiteboard:${whiteboardId}`;
+
+      const whiteboard = await Whiteboard.findById(whiteboardId);
+      if (whiteboard) {
+        const beforeCount = whiteboard.elements.length;
+        whiteboard.elements = whiteboard.elements.filter(el => el.id !== elementId);
+        if (whiteboard.elements.length !== beforeCount) {
+          whiteboard.lastModifiedBy = socket.userId;
+          whiteboard.lastModifiedAt = new Date();
+          await whiteboard.save();
+
+          const activity = await Activity.log({
+            type: 'whiteboard.element.deleted',
+            user: socket.userId,
+            workspace: whiteboard.workspace,
+            project: whiteboard.project,
+            targetType: 'whiteboard',
+            targetId: whiteboard._id,
+            targetName: whiteboard.name,
+            metadata: { elementId }
+          });
+          io.to(`project:${whiteboard.project}`).emit('activity', activity);
+        }
+      }
+
+      socket.to(roomName).emit('whiteboard-element-deleted', {
+        elementId,
+        userId: socket.userId,
+        timestamp: new Date()
+      });
+    } catch (err) {
+      console.error('Whiteboard element delete failed:', err.message);
+    }
   });
 
   // Selection update (show what others are selecting)

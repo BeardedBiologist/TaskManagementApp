@@ -356,4 +356,74 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-subtle);
 }
+
+/* Mobile Responsive Base Styles */
+@media (max-width: 1023px) {
+  html {
+    font-size: 15px;
+  }
+  
+  .btn {
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .form-input,
+  .form-textarea,
+  .form-select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: var(--space-3);
+  }
+  
+  /* Better touch targets */
+  button, 
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+  
+  /* Smoother scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 767px) {
+  html {
+    font-size: 14px;
+  }
+  
+  .btn-lg {
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.875rem;
+  }
+  
+  .card {
+    border-radius: var(--radius-md);
+  }
+  
+  /* Reduced padding on mobile */
+  :root {
+    --space-8: 1.5rem;
+    --space-10: 2rem;
+    --space-12: 2.5rem;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .mobile-header {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .mobile-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
 </style>

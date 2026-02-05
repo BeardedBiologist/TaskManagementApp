@@ -60,10 +60,12 @@ activitySchema.index({ type: 1, timestamp: -1 });
 
 // Static method to log activity
 activitySchema.statics.log = async function(data) {
-  return this.create({
+  const activity = await this.create({
     ...data,
     timestamp: new Date()
   });
+  await activity.populate('user', 'name email avatar');
+  return activity;
 };
 
 const Activity = mongoose.model('Activity', activitySchema);

@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useSocketStore } from './socket'
 
 export const useCollaborationStore = defineStore('collaboration', () => {
   const socketStore = useSocketStore()
   
   // Presence state
-  const roomUsers = ref(new Map())
+  const roomUsers = reactive(new Map())
   const currentRoom = ref(null)
-  const userCursors = ref(new Map())
-  const userActivity = ref(new Map())
+  const userCursors = reactive(new Map())
+  const userActivity = reactive(new Map())
   const listenersInitialized = ref(false)
   
   // Comments state
@@ -22,10 +22,10 @@ export const useCollaborationStore = defineStore('collaboration', () => {
   
   // Computed
   const onlineUsers = computed(() => {
-    return Array.from(roomUsers.value.values())
+    return Array.from(roomUsers.values())
   })
   
-  const userCount = computed(() => roomUsers.value.size)
+  const userCount = computed(() => roomUsers.size)
   
   const activeComments = computed(() => {
     return comments.value.filter(c => c.status === 'open')
@@ -63,44 +63,73 @@ export const useCollaborationStore = defineStore('collaboration', () => {
         roomType: currentRoom.value.type
       })
       currentRoom.value = null
-      roomUsers.value.clear()
-      userCursors.value.clear()
-      userActivity.value.clear()
+      roomUsers.clear()
+      userCursors.clear()
+      userActivity.clear()
     }
   }
   
   function setupRoomListeners() {
     // User joined
     socketStore.on('user-joined', (data) => {
-      roomUsers.value.set(data.userId, data.user)
+      const joinedUser = data.user || {}
+      roomUsers.set(data.userId, {
+        ...joinedUser,
+        initials: joinedUser.initials || getInitials(joinedUser.name)
+      })
     })
     
     // User left
     socketStore.on('user-left', (data) => {
-      roomUsers.value.delete(data.userId)
-      userCursors.value.delete(data.userId)
-      userActivity.value.delete(data.userId)
+      roomUsers.delete(data.userId)
+      userCursors.delete(data.userId)
+      userActivity.delete(data.userId)
     })
     
     // Room users list
     socketStore.on('room-users', (users) => {
-      users.forEach(user => {
-        roomUsers.value.set(user.userId, user)
+      users.forEach(entry => {
+        const userId = entry.userId || entry?.user?._id
+        const userData = entry.user || entry
+        if (!userId || !userData) return
+        roomUsers.set(userId, {
+          ...userData,
+          initials: userData.initials || getInitials(userData.name)
+        })
+        if (entry.cursor) {
+          userCursors.set(userId, entry.cursor)
+        }
+        if (entry.activity) {
+          userActivity.set(userId, {
+            activity: entry.activity,
+            timestamp: entry.timestamp || new Date()
+          })
+        }
       })
     })
     
     // Cursor updates
     socketStore.on('cursor-update', (data) => {
-      userCursors.value.set(data.userId, data.cursor)
+      userCursors.set(data.userId, data.cursor)
     })
     
     // Activity updates
     socketStore.on('user-activity', (data) => {
-      userActivity.value.set(data.userId, {
+      userActivity.set(data.userId, {
         activity: data.activity,
         timestamp: data.timestamp
       })
     })
+  }
+
+  function getInitials(name) {
+    if (!name) return '?'
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
   
   // Update cursor position
