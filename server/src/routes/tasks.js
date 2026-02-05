@@ -242,6 +242,17 @@ router.post('/', authenticate, [
     // Emit to project room if it's a project task
     if (taskProject) {
       req.io.to(`project:${taskProject}`).emit('task-created', taskPayload);
+
+      const activity = await Activity.log({
+        type: 'task.created',
+        user: req.user._id,
+        workspace: taskWorkspace,
+        project: taskProject,
+        targetType: 'task',
+        targetId: task._id,
+        targetName: task.title
+      });
+      req.io.to(`project:${taskProject}`).emit('activity', activity);
     }
 
     res.status(201).json(taskPayload);
@@ -495,6 +506,18 @@ router.post('/:id/comments', authenticate, [
     const newComment = task.comments[task.comments.length - 1];
     req.io.to(`project:${task.project}`).emit('task-comment-added', { taskId: task._id, comment: newComment });
 
+    const activity = await Activity.log({
+      type: 'task.comment.added',
+      user: req.user._id,
+      workspace: project.workspace,
+      project: project._id,
+      targetType: 'task',
+      targetId: task._id,
+      targetName: task.title,
+      metadata: { commentId: newComment._id }
+    });
+    req.io.to(`project:${project._id}`).emit('activity', activity);
+
     res.status(201).json(newComment);
   } catch (error) {
     next(error);
@@ -526,6 +549,17 @@ router.delete('/:id', authenticate, async (req, res, next) => {
     await task.deleteOne();
 
     req.io.to(`project:${task.project}`).emit('task-deleted', { taskId: task._id, columnId: task.columnId });
+
+    const activity = await Activity.log({
+      type: 'task.deleted',
+      user: req.user._id,
+      workspace: project.workspace,
+      project: project._id,
+      targetType: 'task',
+      targetId: task._id,
+      targetName: task.title
+    });
+    req.io.to(`project:${task.project}`).emit('activity', activity);
 
     res.json({ message: 'Task deleted' });
   } catch (error) {

@@ -5,6 +5,7 @@ import { generateToken } from '../utils/generateToken.js';
 import Workspace from '../models/Workspace.js';
 import WorkspaceInvite from '../models/WorkspaceInvite.js';
 import Project from '../models/Project.js';
+import Activity from '../models/Activity.js';
 
 const router = express.Router();
 
@@ -68,6 +69,15 @@ router.post('/register', [
       await user.save();
     }
 
+    // Log activity
+    await Activity.log({
+      type: 'user.joined',
+      user: user._id,
+      targetType: 'user',
+      targetId: user._id,
+      targetName: `${user.name.first} ${user.name.last}`
+    });
+
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -99,6 +109,15 @@ router.post('/login', [
 
     user.lastActive = new Date();
     await user.save();
+
+    // Log activity
+    await Activity.log({
+      type: 'user.login',
+      user: user._id,
+      targetType: 'user',
+      targetId: user._id,
+      targetName: `${user.name.first} ${user.name.last}`
+    });
 
     const token = generateToken(user._id);
 
