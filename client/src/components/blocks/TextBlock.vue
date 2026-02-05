@@ -3,6 +3,7 @@
     ref="editor"
     class="text-block"
     contenteditable="true"
+    dir="auto"
     :class="{ 'is-empty': !block.content }"
     @input="onInput"
     @keydown="onKeydown"
@@ -22,7 +23,7 @@ const props = defineProps({
   blockIndex: Number
 })
 
-const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down', 'slash', 'merge-up', 'shortcut'])
+const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down', 'slash', 'merge-up', 'shortcut', 'link', 'link-close'])
 
 const editor = ref(null)
 const isComposing = ref(false)
@@ -97,6 +98,7 @@ function getCaretPosition() {
 function onInput() {
   const content = editor.value.innerText
   emit('update', { content })
+  maybeTriggerLinkMenu()
 }
 
 function onKeydown(e) {
@@ -208,6 +210,50 @@ function onCompositionEnd() {
   onInput()
 }
 
+function maybeTriggerLinkMenu() {
+  const content = editor.value?.innerText || ''
+  const { offset } = getCaretPosition()
+  const start = content.lastIndexOf('[[', offset - 1)
+  if (start === -1) {
+    emit('link-close')
+    return
+  }
+  const between = content.slice(start + 2, offset)
+  if (between.includes(']') || between.includes('\n')) {
+    emit('link-close')
+    return
+  }
+  const sel = window.getSelection()
+  if (!sel.rangeCount) return
+  const range = sel.getRangeAt(0)
+  let rect = range.getBoundingClientRect()
+  if (rect.left === 0 && rect.top === 0) {
+    const editorRect = editor.value.getBoundingClientRect()
+    rect = { left: editorRect.left, bottom: editorRect.top + 24 }
+  }
+  emit('link', {
+    x: rect.left,
+    y: rect.bottom,
+    filter: between,
+    start,
+    end: offset
+  })
+}
+
+function setCaretPosition(offset) {
+  const node = editor.value?.firstChild
+  const range = document.createRange()
+  const sel = window.getSelection()
+  if (node && node.nodeType === Node.TEXT_NODE) {
+    range.setStart(node, Math.min(offset, node.textContent.length))
+  } else {
+    range.setStart(editor.value, 0)
+  }
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+}
+
 // Expose focus method for parent
 defineExpose({
   focus: () => {
@@ -220,6 +266,15 @@ defineExpose({
   focusEnd: () => {
     editor.value?.focus()
     placeCursorAtEnd()
+  },
+  replaceRange: (start, end, text) => {
+    const content = editor.value?.innerText || ''
+    const next = `${content.slice(0, start)}${text}${content.slice(end)}`
+    editor.value.innerText = next
+    emit('update', { content: next })
+    nextTick(() => {
+      setCaretPosition(start + text.length)
+    })
   }
 })
 </script>

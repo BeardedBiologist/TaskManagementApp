@@ -5,6 +5,7 @@
       ref="editor"
       class="bullet-content"
       contenteditable="true"
+      dir="auto"
       @input="onInput"
       @keydown="onKeydown"
       @compositionstart="onCompositionStart"

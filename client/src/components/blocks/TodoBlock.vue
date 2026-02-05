@@ -13,6 +13,7 @@
       class="todo-content"
       :class="{ 'is-checked': block.checked }"
       contenteditable="true"
+      dir="auto"
       @input="onInput"
       @keydown="onKeydown"
       @compositionstart="onCompositionStart"
