@@ -6,7 +6,21 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all pages for a project
+// Get all pages for a project (including subpages)
+router.get('/project/:projectId/all', authenticate, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const pages = await Page.find({ project: projectId })
+      .sort({ updatedAt: -1 })
+      .populate('owner', 'name email');
+
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get all top-level pages for a project
 router.get('/project/:projectId', authenticate, async (req, res) => {
   try {
     const { projectId } = req.params;

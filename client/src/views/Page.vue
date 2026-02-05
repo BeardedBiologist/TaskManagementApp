@@ -34,6 +34,19 @@
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </template>
+          <button
+            class="btn btn-icon btn-ghost page-delete-btn"
+            type="button"
+            @click="deleteCurrentPage"
+            title="Delete page"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
           <button 
             class="btn btn-icon btn-ghost activity-toggle"
             type="button"
@@ -51,6 +64,9 @@
 
         <!-- Cover Image -->
         <div v-if="pageStore.currentPage.cover" class="cover-image" :style="{ backgroundImage: `url(${pageStore.currentPage.cover})` }">
+          <button class="cover-change" @click="promptCover">
+            Change cover
+          </button>
           <button class="cover-remove" @click="updatePage({ cover: null })">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -62,6 +78,15 @@
         <div class="page-content-wrapper" :class="{ 'activity-hidden': !showActivity }">
           <div class="page-main">
             <div class="page-content">
+              <div class="page-meta-actions">
+                <button class="meta-btn" @click="promptCover">
+                  {{ pageStore.currentPage.cover ? 'Change cover' : 'Add cover' }}
+                </button>
+                <button class="meta-btn" @click="showIconPicker = true">
+                  {{ pageStore.currentPage.icon ? 'Change icon' : 'Add icon' }}
+                </button>
+              </div>
+
               <!-- Page Icon -->
               <div class="page-icon-container">
                 <button 
@@ -83,6 +108,11 @@
                         <line x1="18" y1="6" x2="6" y2="18"/>
                         <line x1="6" y1="6" x2="18" y2="18"/>
                       </svg>
+                    </button>
+                  </div>
+                  <div class="icon-picker-actions">
+                    <button class="remove-icon-btn" @click="updatePage({ icon: null })">
+                      Remove icon
                     </button>
                   </div>
                   <div class="icon-grid">
@@ -257,6 +287,26 @@
                   </button>
                 </div>
               </div>
+
+              <!-- Backlinks -->
+              <div v-if="backlinks.length" class="page-section backlinks-section">
+                <div class="section-header">
+                  <div class="section-icon">🔗</div>
+                  <h3>Backlinks</h3>
+                  <span class="task-count">{{ backlinks.length }}</span>
+                </div>
+                <div class="backlinks-list">
+                  <router-link
+                    v-for="link in backlinks"
+                    :key="link._id"
+                    :to="`/projects/${route.params.id}/pages/${link._id}`"
+                    class="backlink-item"
+                  >
+                    <span class="page-icon">{{ link.icon || '📄' }}</span>
+                    <span class="backlink-title">{{ link.title || 'Untitled' }}</span>
+                  </router-link>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -329,6 +379,7 @@ const newCommentText = ref('')
 const replyTexts = ref({})
 const savedActivity = localStorage.getItem('pageActivityVisible')
 const showActivity = ref(savedActivity ? JSON.parse(savedActivity) : true)
+const allProjectPages = ref([])
 
 const commonIcons = [
   '📄', '📝', '📋', '📑', '📂', '📁', '📊', '📈',
@@ -352,12 +403,28 @@ const calendarTasks = computed(() => {
     .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
 })
 
+const backlinks = computed(() => {
+  const current = pageStore.currentPage
+  if (!current) return []
+  const tokenTitle = `[[${current.title || 'Untitled'}]]`
+  const tokenId = `[[${current._id}]]`
+  return allProjectPages.value.filter(page => {
+    if (page._id === current._id) return false
+    const content = Array.isArray(page.content) ? page.content : []
+    return content.some(block => {
+      const text = block?.content || ''
+      return text.includes(tokenTitle) || text.includes(tokenId)
+    })
+  })
+})
+
 onMounted(async () => {
   const { id: projectId, pageId } = route.params
   
   if (pageId) {
     await loadPage(pageId)
     await projectStore.fetchProject(projectId)
+    await fetchAllProjectPages(projectId)
     
     // Join collaboration room
     if (pageStore.currentPage) {
@@ -400,6 +467,7 @@ watch(() => route.params.pageId, async (newPageId) => {
     collaborationStore.leaveRoom()
     await loadPage(newPageId)
     await projectStore.fetchProject(route.params.id)
+    await fetchAllProjectPages(route.params.id)
     
     collaborationStore.joinRoom('page', newPageId, {
       _id: authStore.user?._id,
@@ -426,6 +494,16 @@ async function loadPage(pageId) {
     }
   } catch (err) {
     console.error('Failed to load page:', err)
+  }
+}
+
+async function fetchAllProjectPages(projectId) {
+  try {
+    const { data } = await api.get(`/pages/project/${projectId}/all`)
+    allProjectPages.value = data
+  } catch (err) {
+    console.error('Failed to load project pages:', err)
+    allProjectPages.value = []
   }
 }
 
@@ -525,16 +603,25 @@ function blurTitle() {
 async function updatePage(updates) {
   try {
     await pageStore.updatePage(pageStore.currentPage._id, updates)
-    if (updates.icon) {
+    if (updates.icon !== undefined) {
       showIconPicker.value = false
     }
     socketStore.emit('page_update', {
       pageId: pageStore.currentPage._id,
       updates
     })
+    if (updates.title || updates.content) {
+      await fetchAllProjectPages(route.params.id)
+    }
   } catch (err) {
     console.error('Failed to update page:', err)
   }
+}
+
+function promptCover() {
+  const url = window.prompt('Paste a cover image URL')
+  if (!url) return
+  updatePage({ cover: url })
 }
 
 async function updateContent(content) {
@@ -562,6 +649,18 @@ function updateActivity(activity) {
 
 function openTask(task) {
   router.push(`/projects/${route.params.id}?task=${task._id}`)
+}
+
+async function deleteCurrentPage() {
+  const current = pageStore.currentPage
+  if (!current) return
+  if (!confirm(`Delete "${current.title || 'Untitled'}"? This cannot be undone.`)) return
+  try {
+    await pageStore.deletePage(current._id)
+    router.push(`/projects/${route.params.id}`)
+  } catch (err) {
+    console.error('Failed to delete page:', err)
+  }
 }
 
 async function createTaskFromPage() {
@@ -665,6 +764,10 @@ function formatMonth(date) {
 }
 
 .activity-toggle {
+  margin-left: 0;
+}
+
+.page-delete-btn {
   margin-left: auto;
 }
 
@@ -719,6 +822,19 @@ function formatMonth(date) {
   border-radius: var(--radius-xl);
   margin-bottom: var(--space-6);
   position: relative;
+}
+
+.cover-change {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .cover-remove {
@@ -810,6 +926,29 @@ function formatMonth(date) {
   position: relative;
 }
 
+.page-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.meta-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.meta-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .page-icon-container {
   margin-bottom: var(--space-4);
 }
@@ -874,6 +1013,27 @@ function formatMonth(date) {
   color: var(--text-primary);
 }
 
+.icon-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+
+.remove-icon-btn {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.remove-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 .close-btn {
   width: 28px;
   height: 28px;
@@ -929,6 +1089,8 @@ function formatMonth(date) {
   color: var(--text-primary);
   margin-bottom: var(--space-6);
   padding: 0;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 .page-title::placeholder {
@@ -945,6 +1107,35 @@ function formatMonth(date) {
   margin-top: var(--space-8);
   padding-top: var(--space-6);
   border-top: 1px solid var(--border-subtle);
+}
+
+.backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.backlink-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.backlink-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.backlink-title {
+  font-size: 14px;
+  color: var(--text-primary);
 }
 
 .section-header {

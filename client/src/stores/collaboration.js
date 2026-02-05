@@ -10,6 +10,7 @@ export const useCollaborationStore = defineStore('collaboration', () => {
   const currentRoom = ref(null)
   const userCursors = ref(new Map())
   const userActivity = ref(new Map())
+  const listenersInitialized = ref(false)
   
   // Comments state
   const comments = ref([])
@@ -49,7 +50,10 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     })
     
     // Set up listeners
-    setupRoomListeners()
+    if (!listenersInitialized.value) {
+      setupRoomListeners()
+      listenersInitialized.value = true
+    }
   }
   
   function leaveRoom() {

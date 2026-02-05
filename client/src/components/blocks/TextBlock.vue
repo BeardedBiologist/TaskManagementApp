@@ -6,6 +6,8 @@
     :class="{ 'is-empty': !block.content }"
     @input="onInput"
     @keydown="onKeydown"
+    @compositionstart="onCompositionStart"
+    @compositionend="onCompositionEnd"
     @focus="onFocus"
     v-html="sanitizedContent"
   />
@@ -20,7 +22,7 @@ const props = defineProps({
   blockIndex: Number
 })
 
-const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down', 'slash'])
+const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down', 'slash', 'merge-up', 'shortcut'])
 
 const editor = ref(null)
 const isComposing = ref(false)
@@ -44,6 +46,15 @@ onMounted(() => {
       editor.value?.focus()
       placeCursorAtEnd()
     })
+  }
+})
+
+watch(() => props.block.content, (nextContent) => {
+  if (!editor.value) return
+  if (document.activeElement === editor.value) return
+  const current = editor.value.innerText
+  if ((nextContent || '') !== current) {
+    editor.value.innerText = nextContent || ''
   }
 })
 
@@ -141,6 +152,28 @@ function onKeydown(e) {
       }
       break
 
+    case ' ':
+      if (isAtStart || offset === content.length) {
+        const shortcut = content.trim()
+        const map = {
+          '#': 'heading1',
+          '##': 'heading2',
+          '###': 'heading3',
+          '-': 'bullet',
+          '*': 'bullet',
+          '1.': 'numbered',
+          '>': 'quote',
+          '[]': 'todo',
+          '[ ]': 'todo',
+          '```': 'code'
+        }
+        if (map[shortcut]) {
+          e.preventDefault()
+          emit('shortcut', map[shortcut])
+        }
+      }
+      break
+
     case '/':
       e.preventDefault()
       // Insert the slash first
@@ -166,6 +199,15 @@ function onFocus() {
   // Block is focused
 }
 
+function onCompositionStart() {
+  isComposing.value = true
+}
+
+function onCompositionEnd() {
+  isComposing.value = false
+  onInput()
+}
+
 // Expose focus method for parent
 defineExpose({
   focus: () => {
@@ -185,9 +227,9 @@ defineExpose({
 <style scoped>
 .text-block {
   min-height: 28px;
-  padding: 3px 2px;
+  padding: 2px 2px;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.65;
   outline: none;
   cursor: text;
   white-space: pre-wrap;

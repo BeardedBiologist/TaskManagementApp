@@ -15,13 +15,15 @@
       contenteditable="true"
       @input="onInput"
       @keydown="onKeydown"
+      @compositionstart="onCompositionStart"
+      @compositionend="onCompositionEnd"
       v-html="sanitizedContent"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 
 const props = defineProps({
   block: Object,
@@ -31,6 +33,7 @@ const props = defineProps({
 const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down'])
 
 const editor = ref(null)
+const isComposing = ref(false)
 
 const sanitizedContent = computed(() => {
   return props.block.content || ''
@@ -44,6 +47,23 @@ onMounted(() => {
   }
 })
 
+watch(() => props.isSelected, (selected) => {
+  if (selected) {
+    nextTick(() => {
+      editor.value?.focus()
+    })
+  }
+})
+
+watch(() => props.block.content, (nextContent) => {
+  if (!editor.value) return
+  if (document.activeElement === editor.value) return
+  const current = editor.value.innerText
+  if ((nextContent || '') !== current) {
+    editor.value.innerText = nextContent || ''
+  }
+})
+
 function onToggle() {
   emit('update', { checked: !props.block.checked })
 }
@@ -53,6 +73,7 @@ function onInput() {
 }
 
 function onKeydown(e) {
+  if (isComposing.value) return
   const content = editor.value.innerText
   const sel = window.getSelection()
   const range = sel.getRangeAt(0)
@@ -61,7 +82,7 @@ function onKeydown(e) {
   switch (e.key) {
     case 'Enter':
       e.preventDefault()
-      emit('enter', { before: content.substring(0, offset), after: content.substring(offset) })
+      emit('enter', { before: content.substring(0, offset), after: content.substring(offset), type: 'todo' })
       break
 
     case 'Backspace':
@@ -86,6 +107,15 @@ function onKeydown(e) {
       break
   }
 }
+
+function onCompositionStart() {
+  isComposing.value = true
+}
+
+function onCompositionEnd() {
+  isComposing.value = false
+  onInput()
+}
 </script>
 
 <style scoped>
@@ -93,7 +123,7 @@ function onKeydown(e) {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: 3px 2px;
+  padding: 2px 2px;
 }
 
 .todo-checkbox {
@@ -153,7 +183,7 @@ function onKeydown(e) {
   flex: 1;
   min-height: 24px;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.65;
   outline: none;
   cursor: text;
 }
