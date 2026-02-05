@@ -511,6 +511,10 @@ const progressPercent = computed(() => {
   return Math.round((completedTasks.value / filteredTasks.value.length) * 100)
 })
 
+const activeWhiteboardId = computed(() => {
+  return route.query.id || null
+})
+
 function getTasksByColumn(columnId) {
   return filteredTasks.value
     .filter(t => t.columnId === columnId)
@@ -533,11 +537,12 @@ onMounted(async () => {
   await projectStore.fetchProject(route.params.id)
   await loadActivities()
   socketStore.joinProject(route.params.id)
-  collaborationStore.joinRoom('project', route.params.id, {
-    _id: authStore.user?._id,
-    name: authStore.userName,
-    initials: authStore.userInitials
-  })
+  if (currentView.value === 'whiteboard' && activeWhiteboardId.value) {
+    await loadWhiteboard(activeWhiteboardId.value)
+    joinCollabRoom('whiteboard', activeWhiteboardId.value)
+  } else {
+    joinCollabRoom('project', route.params.id)
+  }
   setupSocketListeners()
   loading.value = false
 })
@@ -550,8 +555,22 @@ onUnmounted(() => {
 
 // Watch for view changes in URL
 watch(() => route.query.view, (newView) => {
-  if (newView && ['list', 'board', 'timeline'].includes(newView)) {
+  if (!newView) return
+  if (['list', 'board', 'timeline', 'whiteboard'].includes(newView)) {
     currentView.value = newView
+    if (newView === 'whiteboard' && activeWhiteboardId.value) {
+      loadWhiteboard(activeWhiteboardId.value)
+      joinCollabRoom('whiteboard', activeWhiteboardId.value)
+    } else if (newView !== 'whiteboard') {
+      joinCollabRoom('project', route.params.id)
+    }
+  }
+})
+
+watch(() => route.query.id, (newId) => {
+  if (currentView.value === 'whiteboard' && newId) {
+    loadWhiteboard(newId)
+    joinCollabRoom('whiteboard', newId)
   }
 })
 
@@ -559,6 +578,19 @@ function setView(viewId) {
   currentView.value = viewId
   // Update URL without reloading
   router.replace({ query: { ...route.query, view: viewId } })
+}
+
+function joinCollabRoom(type, id) {
+  if (!id) return
+  if (collaborationStore.currentRoom?.type === type && collaborationStore.currentRoom?.id === id) {
+    return
+  }
+  collaborationStore.leaveRoom()
+  collaborationStore.joinRoom(type, id, {
+    _id: authStore.user?._id,
+    name: authStore.userName,
+    initials: authStore.userInitials
+  })
 }
 
 function toggleActivity() {
@@ -590,25 +622,42 @@ function updateWhiteboard(elements) {
 }
 
 function addWhiteboardElement(element) {
+  if (!activeWhiteboardId.value) return
   socketStore.emit('whiteboard-element-add', {
-    whiteboardId: route.params.id,
+    whiteboardId: activeWhiteboardId.value,
     element
   })
 }
 
 function updateWhiteboardElement({ elementId, updates }) {
+  if (!activeWhiteboardId.value) return
   socketStore.emit('whiteboard-element-update', {
-    whiteboardId: route.params.id,
+    whiteboardId: activeWhiteboardId.value,
     elementId,
     updates
   })
 }
 
 function deleteWhiteboardElement(elementId) {
+  if (!activeWhiteboardId.value) return
   socketStore.emit('whiteboard-element-delete', {
-    whiteboardId: route.params.id,
+    whiteboardId: activeWhiteboardId.value,
     elementId
   })
+}
+
+async function loadWhiteboard(whiteboardId) {
+  if (!whiteboardId) {
+    whiteboardElements.value = []
+    return
+  }
+  try {
+    const { data } = await api.get(`/whiteboards/${whiteboardId}`)
+    whiteboardElements.value = data.elements || []
+  } catch (err) {
+    console.error('Failed to load whiteboard:', err)
+    whiteboardElements.value = []
+  }
 }
 
 // Activity feed

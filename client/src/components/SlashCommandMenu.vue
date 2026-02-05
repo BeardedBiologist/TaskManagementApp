@@ -35,7 +35,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   position: Object,
@@ -193,6 +193,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+})
+
+watch(() => props.filter, () => {
+  const first = filteredItems.value[0]
+  selectedIndex.value = first ? items.indexOf(first) : 0
 })
 </script>
 

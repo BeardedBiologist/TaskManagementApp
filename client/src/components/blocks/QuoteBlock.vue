@@ -5,12 +5,14 @@
     contenteditable="true"
     @input="onInput"
     @keydown="onKeydown"
+    @compositionstart="onCompositionStart"
+    @compositionend="onCompositionEnd"
     v-html="sanitizedContent"
   />
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 
 const props = defineProps({
   block: Object,
@@ -20,6 +22,7 @@ const props = defineProps({
 const emit = defineEmits(['update', 'delete', 'enter', 'up', 'down'])
 
 const editor = ref(null)
+const isComposing = ref(false)
 
 const sanitizedContent = computed(() => {
   return props.block.content || ''
@@ -33,11 +36,29 @@ onMounted(() => {
   }
 })
 
+watch(() => props.isSelected, (selected) => {
+  if (selected) {
+    nextTick(() => {
+      editor.value?.focus()
+    })
+  }
+})
+
+watch(() => props.block.content, (nextContent) => {
+  if (!editor.value) return
+  if (document.activeElement === editor.value) return
+  const current = editor.value.innerText
+  if ((nextContent || '') !== current) {
+    editor.value.innerText = nextContent || ''
+  }
+})
+
 function onInput() {
   emit('update', { content: editor.value.innerText })
 }
 
 function onKeydown(e) {
+  if (isComposing.value) return
   const content = editor.value.innerText
   const sel = window.getSelection()
   const range = sel.getRangeAt(0)
@@ -71,6 +92,15 @@ function onKeydown(e) {
       break
   }
 }
+
+function onCompositionStart() {
+  isComposing.value = true
+}
+
+function onCompositionEnd() {
+  isComposing.value = false
+  onInput()
+}
 </script>
 
 <style scoped>
@@ -80,7 +110,7 @@ function onKeydown(e) {
   padding-left: var(--space-4);
   border-left: 3px solid var(--border-strong);
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.65;
   color: var(--text-secondary);
   outline: none;
   cursor: text;

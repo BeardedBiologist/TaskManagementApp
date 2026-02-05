@@ -119,23 +119,60 @@
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                         <polyline points="14 2 14 8 20 8"/>
                       </svg>
-                      <span>Notes</span>
-                      <span v-if="getProjectPages(project._id).length > 0" class="count-badge">
+                      <span class="group-label">Notes</span>
+                      <span v-if="showPagesExpand(project._id)" class="count-badge">
+                        {{ getVisiblePages(project._id).length }} / {{ getProjectPages(project._id).length }}
+                      </span>
+                      <span v-else-if="getProjectPages(project._id).length > 0" class="count-badge">
                         {{ getProjectPages(project._id).length }}
                       </span>
                       <button class="add-btn" @click.stop="createPage(project._id)">+</button>
                     </div>
                     <div class="group-items pages-list">
-                      <router-link
+                      <div
                         v-for="page in getVisiblePages(project._id)"
                         :key="page._id"
-                        :to="`/projects/${project._id}/pages/${page._id}`"
-                        class="child-link"
+                        class="page-row"
                         :class="{ active: $route.params.pageId === page._id }"
                       >
-                        <span class="page-icon">{{ page.icon || '📄' }}</span>
-                        <span class="child-name">{{ page.title || 'Untitled' }}</span>
-                      </router-link>
+                        <router-link
+                          v-if="editingPageId !== page._id"
+                          :to="`/projects/${project._id}/pages/${page._id}`"
+                          class="child-link"
+                          :class="{ active: $route.params.pageId === page._id }"
+                          @dblclick.prevent="startRename(page)"
+                        >
+                          <span class="page-icon">{{ page.icon || '📄' }}</span>
+                          <span class="child-name">{{ page.title || 'Untitled' }}</span>
+                        </router-link>
+                        <div v-else class="page-edit">
+                          <span class="page-icon">{{ page.icon || '📄' }}</span>
+                          <input
+                            v-model="editingPageTitle"
+                            class="page-edit-input"
+                            type="text"
+                            @keydown.enter.prevent="commitRename(page)"
+                            @keydown.esc.prevent="cancelRename"
+                            @blur="commitRename(page)"
+                          />
+                        </div>
+                        <div class="page-actions">
+                          <button class="page-action-btn" @click.stop="startRename(page)" title="Rename">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M12 20h9"/>
+                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                            </svg>
+                          </button>
+                          <button class="page-action-btn danger" @click.stop="deletePage(page, project._id)" title="Delete">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                              <path d="M10 11v6M14 11v6"/>
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                       <button
                         v-if="showPagesExpand(project._id)"
                         class="show-more-btn"
@@ -156,7 +193,10 @@
                         <path d="M12 20h9"/>
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                       </svg>
-                      <span>Tasks</span>
+                      <span class="group-label">Tasks</span>
+                      <span v-if="getProjectTaskCount(project._id) > 0" class="count-badge">
+                        {{ getProjectTaskCount(project._id) }}
+                      </span>
                     </div>
                     <div class="group-items">
                       <router-link
@@ -194,29 +234,7 @@
                         <circle cx="8.5" cy="8.5" r="1.5"/>
                         <circle cx="15.5" cy="15.5" r="1.5"/>
                       </svg>
-                      <span>Whiteboards</span>
-                    </div>
-                    <div class="group-items">
-                      <router-link
-                        :to="`/projects/${project._id}?view=whiteboard`"
-                        class="child-link"
-                        :class="{ active: $route.params.id === project._id && $route.query.view === 'whiteboard' }"
-                      >
-                        <span class="view-icon">🧩</span>
-                        <span class="child-name">Board</span>
-                      </router-link>
-                    </div>
-                  </div>
-
-                  <!-- Whiteboards -->
-                  <div class="content-group">
-                    <div class="group-header">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <circle cx="15.5" cy="15.5" r="1.5"/>
-                      </svg>
-                      <span>Whiteboards</span>
+                      <span class="group-label">Whiteboards</span>
                       <span v-if="getProjectWhiteboards(project._id).length > 0" class="count-badge">
                         {{ getProjectWhiteboards(project._id).length }}
                       </span>
@@ -310,6 +328,9 @@ const socketStore = useSocketStore()
 
 const showUserMenu = ref(false)
 const whiteboardsByProject = ref({})
+const allTasks = ref([])
+const editingPageId = ref(null)
+const editingPageTitle = ref('')
 
 // Load expanded state from localStorage
 const savedExpandedWorkspaces = localStorage.getItem('expandedWorkspaces')
@@ -340,6 +361,7 @@ onMounted(async () => {
     await pageStore.fetchPages(project._id)
   }
   await fetchWhiteboardsForProjects(projectStore.projects)
+  await fetchAllTasks()
 })
 
 function toggleWorkspace(workspaceId) {
@@ -422,8 +444,44 @@ async function createPage(projectId) {
       expandedProjects.value.push(projectId)
     }
     router.push(`/projects/${projectId}/pages/${page._id}`)
+    startRename(page)
   } catch (err) {
     console.error('Failed to create page:', err)
+  }
+}
+
+function startRename(page) {
+  editingPageId.value = page._id
+  editingPageTitle.value = page.title || 'Untitled'
+}
+
+async function commitRename(page) {
+  if (editingPageId.value !== page._id) return
+  const title = editingPageTitle.value.trim() || 'Untitled'
+  editingPageId.value = null
+  editingPageTitle.value = ''
+  if (title === (page.title || 'Untitled')) return
+  try {
+    await pageStore.updatePage(page._id, { title })
+  } catch (err) {
+    console.error('Failed to rename page:', err)
+  }
+}
+
+function cancelRename() {
+  editingPageId.value = null
+  editingPageTitle.value = ''
+}
+
+async function deletePage(page, projectId) {
+  if (!confirm(`Delete "${page.title || 'Untitled'}"? This cannot be undone.`)) return
+  try {
+    await pageStore.deletePage(page._id)
+    if (route.params.pageId === page._id) {
+      router.push(`/projects/${projectId}`)
+    }
+  } catch (err) {
+    console.error('Failed to delete page:', err)
   }
 }
 
@@ -458,6 +516,22 @@ async function fetchWhiteboardsForProjects(projects) {
     }
   }
   whiteboardsByProject.value = results
+}
+
+async function fetchAllTasks() {
+  try {
+    const { data } = await api.get('/tasks')
+    allTasks.value = data
+  } catch (err) {
+    console.error('Failed to fetch tasks count:', err)
+  }
+}
+
+function getProjectTaskCount(projectId) {
+  return allTasks.value.filter(t => {
+    const taskProjectId = t.project?._id || t.project || t.projectId
+    return taskProjectId === projectId
+  }).length
 }
 
 function handleLogout() {
@@ -727,9 +801,7 @@ function generateColor(str) {
   height: 10px;
 }
 
-.group-header span {
-  flex: 1;
-}
+
 
 .add-btn {
   width: 16px;
@@ -746,6 +818,7 @@ function generateColor(str) {
   font-weight: 500;
   opacity: 0;
   transition: all 0.15s ease;
+  margin-left: auto;
 }
 
 .content-group:hover .add-btn {
@@ -761,6 +834,78 @@ function generateColor(str) {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+.page-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: var(--space-1);
+}
+
+.page-row.active .child-link {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.page-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.page-row:hover .page-actions,
+.page-row.active .page-actions {
+  opacity: 1;
+}
+
+.page-action-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.page-action-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.page-action-btn.danger:hover {
+  color: var(--danger-500);
+}
+
+.page-action-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.page-edit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+.page-edit-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--text-primary);
 }
 
 .child-link {

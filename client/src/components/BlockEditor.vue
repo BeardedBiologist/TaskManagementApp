@@ -10,7 +10,6 @@
           'is-dragging': draggingIndex === index,
           'is-drop-target': dropTargetIndex === index
         }"
-        :draggable="true"
         @click="selectBlock(index)"
         @dragstart="handleDragStart($event, index)"
         @dragover="handleDragOver($event, index)"
@@ -19,7 +18,12 @@
         @dragend="handleDragEnd"
       >
         <!-- Block handle for drag -->
-        <div class="block-handle" title="Drag to move">
+        <div
+          class="block-handle"
+          title="Drag to move"
+          draggable="true"
+          @dragstart.stop="handleDragStart($event, index)"
+        >
           <svg viewBox="0 0 10 10" fill="currentColor">
             <circle cx="2" cy="2" r="1.5"/>
             <circle cx="7" cy="2" r="1.5"/>
@@ -37,17 +41,36 @@
           @update="updateBlock(index, $event)"
           @delete="deleteBlock(index)"
           @enter="splitBlock(index, $event)"
+          @merge-up="mergeBlockUp(index)"
           @up="moveFocus(index - 1)"
           @down="moveFocus(index + 1)"
           @slash="showSlashMenu(index, $event)"
+          @shortcut="applyShortcut(index, $event)"
         />
         
         <!-- Add block button on hover -->
-        <div class="add-block-btn" @click.stop="showAddMenu(index)">
+        <div class="add-block-btn" @click.stop="showAddMenu(index, $event)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
+        </div>
+
+        <div class="block-actions" v-if="selectedBlock === index">
+          <button class="block-action-btn" @click.stop="showTypeMenu(index, $event)" title="Change block type">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 6h16M4 12h10M4 18h7"/>
+              <polyline points="18 8 22 12 18 16"/>
+            </svg>
+          </button>
+          <button class="block-action-btn" @click.stop="deleteBlock(index)" title="Delete block">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </button>
         </div>
       </div>
       
@@ -77,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, watch } from 'vue'
 import TextBlock from './blocks/TextBlock.vue'
 import HeadingBlock from './blocks/HeadingBlock.vue'
 import TodoBlock from './blocks/TodoBlock.vue'
@@ -111,10 +134,39 @@ const slashBlockIndex = ref(0)
 const addMenuVisible = ref(false)
 const addMenuPosition = ref({ x: 0, y: 0 })
 const addBlockIndex = ref(0)
+const addMenuMode = ref('add')
 
 // Drag and drop state
 const draggingIndex = ref(-1)
 const dropTargetIndex = ref(-1)
+
+watch(
+  () => props.initialBlocks,
+  (nextBlocks) => {
+    if (!Array.isArray(nextBlocks)) return
+    const isSame = nextBlocks.length === blocks.value.length && nextBlocks.every((block, index) => {
+      const current = blocks.value[index]
+      if (!current) return false
+      return block.id === current.id &&
+        block.type === current.type &&
+        (block.content || '') === (current.content || '') &&
+        (block.checked || false) === (current.checked || false) &&
+        (block.url || '') === (current.url || '') &&
+        (block.caption || '') === (current.caption || '') &&
+        (block.language || '') === (current.language || '')
+    })
+    if (isSame) return
+    if (nextBlocks.length === 0) {
+      blocks.value = [{ id: generateId(), type: 'text', content: '' }]
+    } else {
+      blocks.value = nextBlocks.map(block => ({ ...block }))
+    }
+    if (selectedBlock.value >= blocks.value.length) {
+      selectedBlock.value = blocks.value.length - 1
+    }
+  },
+  { deep: true }
+)
 
 function generateId() {
   return Math.random().toString(36).substr(2, 9)
@@ -142,8 +194,17 @@ function selectBlock(index) {
 }
 
 function updateBlock(index, updates) {
-  blocks.value[index] = { ...blocks.value[index], ...updates }
+  Object.assign(blocks.value[index], updates)
   emit('update', blocks.value)
+
+  if (slashMenuVisible.value && slashBlockIndex.value === index) {
+    const content = blocks.value[index].content || ''
+    if (content.startsWith('/')) {
+      slashFilter.value = content.slice(1)
+    } else {
+      closeSlashMenu()
+    }
+  }
 }
 
 function deleteBlock(index) {
@@ -178,15 +239,42 @@ function addBlock(index, type, content = '') {
   })
 }
 
-function splitBlock(index, { before, after }) {
+function splitBlock(index, { before, after, type }) {
+  const currentType = blocks.value[index]?.type
   updateBlock(index, { content: before })
-  addBlock(index, 'text', after)
+  const listTypes = ['bullet', 'numbered', 'todo']
+  const nextType = type || (listTypes.includes(currentType) ? currentType : 'text')
+  addBlock(index, nextType, after)
 }
 
 function moveFocus(index) {
   if (index >= 0 && index < blocks.value.length) {
     selectedBlock.value = index
   }
+}
+
+function mergeBlockUp(index) {
+  if (index <= 0) return
+  const current = blocks.value[index]
+  const previous = blocks.value[index - 1]
+  if (!previous) return
+  const prevContent = previous.content || ''
+  const currentContent = current.content || ''
+  previous.content = `${prevContent}${currentContent}`
+  blocks.value.splice(index, 1)
+  emit('update', blocks.value)
+  nextTick(() => {
+    selectedBlock.value = index - 1
+  })
+}
+
+function applyShortcut(index, type) {
+  const block = blocks.value[index]
+  if (!block) return
+  updateBlock(index, { type, content: '' })
+  nextTick(() => {
+    selectedBlock.value = index
+  })
 }
 
 function showSlashMenu(index, event) {
@@ -202,16 +290,28 @@ function closeSlashMenu() {
 
 function onSlashSelect(type) {
   const currentBlock = blocks.value[slashBlockIndex.value]
-  if (currentBlock.type === 'text' && !currentBlock.content) {
-    updateBlock(slashBlockIndex.value, { type })
+  const content = currentBlock.content || ''
+  const isCommand = content.startsWith('/') && !content.includes(' ')
+  const isEmpty = content.trim() === '' || content.trim() === '/'
+  if (currentBlock.type === 'text' && (isEmpty || isCommand)) {
+    updateBlock(slashBlockIndex.value, { type, content: '' })
   } else {
     addBlock(slashBlockIndex.value, type)
   }
   closeSlashMenu()
 }
 
-function showAddMenu(index) {
+function showAddMenu(index, event) {
   addBlockIndex.value = index
+  addMenuMode.value = 'add'
+  const rect = event.target.getBoundingClientRect()
+  addMenuPosition.value = { x: rect.left, y: rect.bottom }
+  addMenuVisible.value = true
+}
+
+function showTypeMenu(index, event) {
+  addBlockIndex.value = index
+  addMenuMode.value = 'change'
   const rect = event.target.getBoundingClientRect()
   addMenuPosition.value = { x: rect.left, y: rect.bottom }
   addMenuVisible.value = true
@@ -222,7 +322,11 @@ function closeAddMenu() {
 }
 
 function onAddSelect(type) {
-  addBlock(addBlockIndex.value, type)
+  if (addMenuMode.value === 'change') {
+    updateBlock(addBlockIndex.value, { type })
+  } else {
+    addBlock(addBlockIndex.value, type)
+  }
   closeAddMenu()
 }
 
@@ -280,14 +384,14 @@ function handleDragEnd() {
 <style scoped>
 .block-editor {
   width: 100%;
-  max-width: 900px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
 .editor-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .block-wrapper {
@@ -295,7 +399,7 @@ function handleDragEnd() {
   display: flex;
   align-items: flex-start;
   gap: var(--space-1);
-  padding: 2px 0;
+  padding: 4px 0;
   border-radius: var(--radius-sm);
   transition: background-color 0.1s ease, opacity 0.2s ease;
 }
@@ -326,6 +430,7 @@ function handleDragEnd() {
   cursor: grab;
   color: var(--text-muted);
   transition: opacity 0.1s ease;
+  user-select: none;
 }
 
 .block-wrapper:hover .block-handle,
@@ -374,6 +479,46 @@ function handleDragEnd() {
 }
 
 .add-block-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.block-actions {
+  position: absolute;
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.block-wrapper:hover .block-actions,
+.block-wrapper.is-selected .block-actions {
+  opacity: 1;
+}
+
+.block-action-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.block-action-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.block-action-btn svg {
   width: 14px;
   height: 14px;
 }
