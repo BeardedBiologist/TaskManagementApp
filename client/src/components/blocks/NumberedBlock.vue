@@ -5,6 +5,7 @@
       ref="editor"
       class="numbered-content"
       contenteditable="true"
+      dir="auto"
       @input="onInput"
       @keydown="onKeydown"
       @compositionstart="onCompositionStart"

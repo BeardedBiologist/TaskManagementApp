@@ -85,6 +85,36 @@
                 <button class="meta-btn" @click="showIconPicker = true">
                   {{ pageStore.currentPage.icon ? 'Change icon' : 'Add icon' }}
                 </button>
+                <button class="meta-btn" @click="showTemplateMenu = !showTemplateMenu">
+                  Templates
+                </button>
+                <button class="meta-btn" @click="duplicatePage">
+                  Duplicate
+                </button>
+              </div>
+              <div v-if="showTemplateMenu" class="template-menu" @click.self="showTemplateMenu = false">
+                <div class="template-panel">
+                  <div class="template-header">
+                    <span>Insert template</span>
+                    <button class="btn btn-icon btn-ghost" @click="showTemplateMenu = false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="template-list">
+                    <button
+                      v-for="template in templates"
+                      :key="template.id"
+                      class="template-item"
+                      @click="applyTemplate(template)"
+                    >
+                      <div class="template-name">{{ template.name }}</div>
+                      <div class="template-desc">{{ template.description }}</div>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Page Icon -->
@@ -149,6 +179,7 @@
               <div class="editor-wrapper" ref="editorWrapper">
                 <BlockEditor
                   :initial-blocks="pageStore.currentPage.content"
+                  :available-pages="allProjectPages"
                   @update="updateContent"
                   @cursor-move="handleCursorMove"
                 />
@@ -374,6 +405,7 @@ const collaborationStore = useCollaborationStore()
 const titleRef = ref(null)
 const pageTitle = ref('')
 const showIconPicker = ref(false)
+const showTemplateMenu = ref(false)
 const isCreatingTask = ref(false)
 const newCommentText = ref('')
 const replyTexts = ref({})
@@ -388,6 +420,43 @@ const commonIcons = [
   '💼', '💰', '💳', '📞', '✉️', '📦', '🎁', '🚀',
   '🏠', '📍', '🗺️', '🌍', '🌟', '☀️', '🌙', '⚙️',
   '🔒', '🔑', '🔍', '💻', '📱', '🖥️', '📡', '🔗'
+]
+
+const templates = [
+  {
+    id: 'meeting',
+    name: 'Meeting Notes',
+    description: 'Agenda, notes, decisions, action items.',
+    blocks: [
+      { type: 'heading1', content: 'Meeting Notes' },
+      { type: 'heading2', content: 'Agenda' },
+      { type: 'bullet', content: '' },
+      { type: 'heading2', content: 'Notes' },
+      { type: 'text', content: '' },
+      { type: 'heading2', content: 'Decisions' },
+      { type: 'bullet', content: '' },
+      { type: 'heading2', content: 'Action Items' },
+      { type: 'todo', content: '' }
+    ]
+  },
+  {
+    id: 'spec',
+    name: 'Product Spec',
+    description: 'Problem, goals, scope, solution, risks.',
+    blocks: [
+      { type: 'heading1', content: 'Product Spec' },
+      { type: 'heading2', content: 'Problem' },
+      { type: 'text', content: '' },
+      { type: 'heading2', content: 'Goals' },
+      { type: 'bullet', content: '' },
+      { type: 'heading2', content: 'Non-Goals' },
+      { type: 'bullet', content: '' },
+      { type: 'heading2', content: 'Solution' },
+      { type: 'text', content: '' },
+      { type: 'heading2', content: 'Risks' },
+      { type: 'bullet', content: '' }
+    ]
+  }
 ]
 
 // Get tasks associated with this page
@@ -722,6 +791,39 @@ function formatDay(date) {
 function formatMonth(date) {
   return new Date(date).toLocaleString('default', { month: 'short' })
 }
+
+function applyTemplate(template) {
+  if (!pageStore.currentPage) return
+  const replace = window.confirm('Replace current content with this template? Click Cancel to insert at the end.')
+  const blocks = template.blocks.map(block => ({
+    id: window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).slice(2),
+    type: block.type,
+    content: block.content || '',
+    checked: block.type === 'todo' ? false : undefined
+  }))
+  const current = pageStore.currentPage.content || []
+  const next = replace ? blocks : [...current, ...blocks]
+  updatePage({ content: next })
+  showTemplateMenu.value = false
+}
+
+async function duplicatePage() {
+  const current = pageStore.currentPage
+  if (!current) return
+  try {
+    const page = await pageStore.createPage({
+      project: current.project?._id || current.project,
+      parent: current.parent?._id || current.parent || null,
+      title: `${current.title || 'Untitled'} copy`,
+      icon: current.icon || '📄',
+      cover: current.cover || null,
+      content: current.content || []
+    })
+    router.push(`/projects/${route.params.id}/pages/${page._id}`)
+  } catch (err) {
+    console.error('Failed to duplicate page:', err)
+  }
+}
 </script>
 
 <style scoped>
@@ -949,6 +1051,61 @@ function formatMonth(date) {
   color: var(--text-primary);
 }
 
+.template-menu {
+  position: relative;
+  margin-bottom: var(--space-4);
+}
+
+.template-panel {
+  max-width: 420px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+}
+
+.template-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.template-item {
+  text-align: left;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.template-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.template-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.template-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
 .page-icon-container {
   margin-bottom: var(--space-4);
 }
@@ -1100,6 +1257,7 @@ function formatMonth(date) {
 /* Editor */
 .editor-wrapper {
   margin-bottom: var(--space-12);
+  margin-left: -20px;
 }
 
 /* Page Sections */

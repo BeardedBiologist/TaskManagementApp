@@ -1,5 +1,5 @@
 <template>
-  <div class="block-editor">
+  <div class="block-editor" @keydown.capture="handleEditorKeydown">
     <div class="editor-content">
       <div
         v-for="(block, index) in blocks"
@@ -8,9 +8,10 @@
         :class="{ 
           'is-selected': selectedBlock === index,
           'is-dragging': draggingIndex === index,
-          'is-drop-target': dropTargetIndex === index
+          'is-drop-target': dropTargetIndex === index,
+          'is-range': isInRange(index)
         }"
-        @click="selectBlock(index)"
+        @click="selectBlock(index, $event)"
         @dragstart="handleDragStart($event, index)"
         @dragover="handleDragOver($event, index)"
         @dragleave="handleDragLeave"
@@ -33,20 +34,25 @@
         </div>
         
         <!-- Block content -->
-        <component
-          :is="getBlockComponent(block.type)"
-          :block="block"
-          :is-selected="selectedBlock === index"
-          :block-index="index"
-          @update="updateBlock(index, $event)"
-          @delete="deleteBlock(index)"
-          @enter="splitBlock(index, $event)"
-          @merge-up="mergeBlockUp(index)"
-          @up="moveFocus(index - 1)"
-          @down="moveFocus(index + 1)"
-          @slash="showSlashMenu(index, $event)"
-          @shortcut="applyShortcut(index, $event)"
-        />
+        <div class="block-body">
+          <component
+            :is="getBlockComponent(block.type)"
+            :block="block"
+            :is-selected="selectedBlock === index"
+            :block-index="index"
+            @update="updateBlock(index, $event)"
+            @delete="deleteBlock(index)"
+            @enter="splitBlock(index, $event)"
+            @merge-up="mergeBlockUp(index)"
+            @up="moveFocus(index - 1)"
+            @down="moveFocus(index + 1)"
+            @slash="showSlashMenu(index, $event)"
+            @shortcut="applyShortcut(index, $event)"
+            @link="showLinkMenu(index, $event)"
+            @link-close="clearLinkMenu"
+            :ref="(el) => setBlockRef(el, index)"
+          />
+        </div>
         
         <!-- Add block button on hover -->
         <div class="add-block-btn" @click.stop="showAddMenu(index, $event)">
@@ -63,7 +69,7 @@
               <polyline points="18 8 22 12 18 16"/>
             </svg>
           </button>
-          <button class="block-action-btn" @click.stop="deleteBlock(index)" title="Delete block">
+          <button class="block-action-btn" @click.stop="deleteSelectedBlocks(index)" title="Delete block">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"/>
               <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -96,11 +102,20 @@
       @select="onAddSelect"
       @close="closeAddMenu"
     />
+
+    <PageLinkMenu
+      v-if="linkMenuVisible"
+      :position="linkMenuPosition"
+      :filter="linkFilter"
+      :pages="props.availablePages"
+      @select="onLinkSelect"
+      @close="closeLinkMenu"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, onBeforeUpdate } from 'vue'
 import TextBlock from './blocks/TextBlock.vue'
 import HeadingBlock from './blocks/HeadingBlock.vue'
 import TodoBlock from './blocks/TodoBlock.vue'
@@ -112,9 +127,14 @@ import DividerBlock from './blocks/DividerBlock.vue'
 import ImageBlock from './blocks/ImageBlock.vue'
 import SlashCommandMenu from './SlashCommandMenu.vue'
 import BlockTypeMenu from './BlockTypeMenu.vue'
+import PageLinkMenu from './PageLinkMenu.vue'
 
 const props = defineProps({
   initialBlocks: {
+    type: Array,
+    default: () => []
+  },
+  availablePages: {
     type: Array,
     default: () => []
   }
@@ -135,10 +155,21 @@ const addMenuVisible = ref(false)
 const addMenuPosition = ref({ x: 0, y: 0 })
 const addBlockIndex = ref(0)
 const addMenuMode = ref('add')
+const linkMenuVisible = ref(false)
+const linkMenuPosition = ref({ x: 0, y: 0 })
+const linkFilter = ref('')
+const linkBlockIndex = ref(0)
+const linkRange = ref({ start: 0, end: 0 })
+const selectedRange = ref(null)
+const blockRefs = ref([])
 
 // Drag and drop state
 const draggingIndex = ref(-1)
 const dropTargetIndex = ref(-1)
+
+onBeforeUpdate(() => {
+  blockRefs.value = []
+})
 
 watch(
   () => props.initialBlocks,
@@ -164,12 +195,21 @@ watch(
     if (selectedBlock.value >= blocks.value.length) {
       selectedBlock.value = blocks.value.length - 1
     }
+    if (selectedRange.value && selectedRange.value.end >= blocks.value.length) {
+      selectedRange.value = null
+    }
   },
   { deep: true }
 )
 
 function generateId() {
   return Math.random().toString(36).substr(2, 9)
+}
+
+function setBlockRef(el, index) {
+  if (el) {
+    blockRefs.value[index] = el
+  }
 }
 
 function getBlockComponent(type) {
@@ -189,8 +229,16 @@ function getBlockComponent(type) {
   return components[type] || TextBlock
 }
 
-function selectBlock(index) {
-  selectedBlock.value = index
+function selectBlock(index, event) {
+  if (event?.shiftKey && selectedBlock.value !== -1) {
+    const start = Math.min(selectedBlock.value, index)
+    const end = Math.max(selectedBlock.value, index)
+    selectedRange.value = { start, end }
+    selectedBlock.value = index
+  } else {
+    selectedRange.value = null
+    selectedBlock.value = index
+  }
 }
 
 function updateBlock(index, updates) {
@@ -225,6 +273,33 @@ function deleteBlock(index) {
   }
 }
 
+function deleteSelectedBlocks(index) {
+  if (!selectedRange.value) {
+    deleteBlock(index)
+    return
+  }
+  const { start, end } = selectedRange.value
+  if (index < start || index > end) {
+    deleteBlock(index)
+    return
+  }
+  const count = end - start + 1
+  if (blocks.value.length <= count) {
+    blocks.value = [{ id: generateId(), type: 'text', content: '' }]
+    selectedBlock.value = 0
+    selectedRange.value = null
+    emit('update', blocks.value)
+    return
+  }
+  blocks.value.splice(start, count)
+  emit('update', blocks.value)
+  selectedBlock.value = Math.min(start, blocks.value.length - 1)
+  selectedRange.value = null
+  nextTick(() => {
+    moveFocus(selectedBlock.value)
+  })
+}
+
 function addBlock(index, type, content = '') {
   const newBlock = {
     id: generateId(),
@@ -249,6 +324,7 @@ function splitBlock(index, { before, after, type }) {
 
 function moveFocus(index) {
   if (index >= 0 && index < blocks.value.length) {
+    selectedRange.value = null
     selectedBlock.value = index
   }
 }
@@ -282,6 +358,7 @@ function showSlashMenu(index, event) {
   slashFilter.value = event.filter || ''
   slashMenuPosition.value = { x: event.x, y: event.y }
   slashMenuVisible.value = true
+  closeLinkMenu()
 }
 
 function closeSlashMenu() {
@@ -330,9 +407,43 @@ function onAddSelect(type) {
   closeAddMenu()
 }
 
+function showLinkMenu(index, event) {
+  linkBlockIndex.value = index
+  linkFilter.value = event.filter || ''
+  linkRange.value = { start: event.start, end: event.end }
+  linkMenuPosition.value = { x: event.x, y: event.y }
+  linkMenuVisible.value = true
+  closeSlashMenu()
+}
+
+function closeLinkMenu() {
+  linkMenuVisible.value = false
+}
+
+function onLinkSelect(page) {
+  const text = `[[${page.title || 'Untitled'}]]`
+  const ref = blockRefs.value[linkBlockIndex.value]
+  if (ref?.replaceRange) {
+    ref.replaceRange(linkRange.value.start, linkRange.value.end, text)
+  } else {
+    const block = blocks.value[linkBlockIndex.value]
+    const content = block?.content || ''
+    const next = `${content.slice(0, linkRange.value.start)}${text}${content.slice(linkRange.value.end)}`
+    updateBlock(linkBlockIndex.value, { content: next })
+  }
+  closeLinkMenu()
+}
+
+function clearLinkMenu() {
+  if (linkMenuVisible.value) {
+    closeLinkMenu()
+  }
+}
+
 // Drag and Drop handlers
 function handleDragStart(e, index) {
   draggingIndex.value = index
+  selectedRange.value = null
   e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer.setData('text/plain', index)
   // Add a drag image if desired
@@ -379,6 +490,50 @@ function handleDragEnd() {
   draggingIndex.value = -1
   dropTargetIndex.value = -1
 }
+
+function handleEditorKeydown(e) {
+  const isMeta = e.metaKey || e.ctrlKey
+  if (!isMeta) return
+  if (e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault()
+    duplicateBlock()
+    return
+  }
+  if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault()
+    const delta = e.key === 'ArrowUp' ? -1 : 1
+    moveBlockBy(delta)
+  }
+}
+
+function duplicateBlock() {
+  if (selectedBlock.value < 0) return
+  const block = blocks.value[selectedBlock.value]
+  if (!block) return
+  const copy = { ...block, id: generateId() }
+  blocks.value.splice(selectedBlock.value + 1, 0, copy)
+  emit('update', blocks.value)
+  nextTick(() => {
+    selectedBlock.value = selectedBlock.value + 1
+  })
+}
+
+function moveBlockBy(delta) {
+  const index = selectedBlock.value
+  if (index < 0) return
+  const target = index + delta
+  if (target < 0 || target >= blocks.value.length) return
+  const block = blocks.value[index]
+  blocks.value.splice(index, 1)
+  blocks.value.splice(target, 0, block)
+  selectedBlock.value = target
+  emit('update', blocks.value)
+}
+
+function isInRange(index) {
+  if (!selectedRange.value) return false
+  return index >= selectedRange.value.start && index <= selectedRange.value.end
+}
 </script>
 
 <style scoped>
@@ -396,12 +551,11 @@ function handleDragEnd() {
 
 .block-wrapper {
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: 4px 0;
+  display: block;
+  padding: 4px 40px 4px 0;
   border-radius: var(--radius-sm);
   transition: background-color 0.1s ease, opacity 0.2s ease;
+  width: 100%;
 }
 
 .block-wrapper:hover {
@@ -410,6 +564,10 @@ function handleDragEnd() {
 
 .block-wrapper.is-selected {
   background-color: var(--bg-selected);
+}
+
+.block-wrapper.is-range {
+  background-color: var(--bg-hover);
 }
 
 .block-wrapper.is-dragging {
@@ -431,6 +589,22 @@ function handleDragEnd() {
   color: var(--text-muted);
   transition: opacity 0.1s ease;
   user-select: none;
+  align-self: flex-start;
+  position: absolute;
+  left: -24px;
+  top: 6px;
+}
+
+.block-wrapper .block-handle,
+.block-wrapper .block-actions {
+  pointer-events: none;
+}
+
+.block-wrapper:hover .block-handle,
+.block-wrapper:hover .block-actions,
+.block-wrapper.is-selected .block-handle,
+.block-wrapper.is-selected .block-actions {
+  pointer-events: auto;
 }
 
 .block-wrapper:hover .block-handle,
@@ -447,9 +621,10 @@ function handleDragEnd() {
   height: 10px;
 }
 
-.block-content {
-  flex: 1;
+.block-body {
   min-height: 28px;
+  align-self: stretch;
+  min-width: 0;
 }
 
 .add-block-btn {
@@ -485,9 +660,8 @@ function handleDragEnd() {
 
 .block-actions {
   position: absolute;
-  right: -40px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0;
+  top: 4px;
   display: flex;
   gap: 4px;
   opacity: 0;
