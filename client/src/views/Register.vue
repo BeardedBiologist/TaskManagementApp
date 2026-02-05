@@ -92,6 +92,7 @@
 
       <div class="auth-footer">
         <p>Already have an account? <router-link to="/login">Sign in</router-link></p>
+        <p class="back-link"><router-link to="/">← Back to home</router-link></p>
       </div>
     </div>
 
@@ -132,7 +133,7 @@ async function handleRegister() {
   
   if (success) {
     socketStore.connect()
-    router.push('/')
+    router.push('/dashboard')
   }
 }
 </script>
@@ -285,6 +286,11 @@ async function handleRegister() {
 
 .auth-footer a:hover {
   text-decoration: underline;
+}
+
+.back-link {
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
 }
 
 /* Background decoration */

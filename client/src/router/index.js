@@ -3,6 +3,12 @@ import { useAuthStore } from '../stores/auth'
 
 const routes = [
   {
+    path: '/',
+    name: 'Landing',
+    component: () => import('../views/LandingPage.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue'),
@@ -15,7 +21,7 @@ const routes = [
     meta: { guest: true }
   },
   {
-    path: '/',
+    path: '/dashboard',
     name: 'Dashboard',
     component: () => import('../views/Dashboard.vue'),
     meta: { requiresAuth: true }
@@ -51,6 +57,18 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/activity',
+    name: 'Activity',
+    component: () => import('../views/Activity.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/whiteboards',
+    name: 'Whiteboards',
+    component: () => import('../views/Whiteboards.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/pages/:id',
     name: 'Page',
     component: () => import('../views/Page.vue'),
@@ -66,19 +84,34 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior() {
+    return { top: 0 }
+  }
 })
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (to.meta.guest && authStore.isAuthenticated) {
-    next('/')
-  } else {
-    next()
+  // Redirect authenticated users away from landing/login/register
+  if (to.meta.guest && authStore.isAuthenticated) {
+    next('/dashboard')
+    return
   }
+  
+  // Redirect authenticated users from landing to dashboard
+  if (to.path === '/' && authStore.isAuthenticated) {
+    next('/dashboard')
+    return
+  }
+  
+  // Redirect unauthenticated users to landing page (not login)
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    next('/')
+    return
+  }
+  
+  next()
 })
 
 export default router

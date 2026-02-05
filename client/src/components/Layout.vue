@@ -2,17 +2,17 @@
   <div class="layout">
     <!-- Sidebar -->
     <aside class="sidebar">
-      <div class="sidebar-brand">
+      <router-link to="/dashboard" class="sidebar-brand">
         <div class="brand-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
           </svg>
         </div>
         <span class="brand-text">Orbit</span>
-      </div>
+      </router-link>
 
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item" :class="{ active: $route.path === '/' }">
+        <router-link to="/dashboard" class="nav-item" :class="{ active: $route.path === '/dashboard' }">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="7" height="7"/>
             <rect x="14" y="3" width="7" height="7"/>
@@ -41,6 +41,14 @@
           </svg>
           <span>Calendar</span>
         </router-link>
+        
+        <router-link to="/activity" class="nav-item" :class="{ active: $route.path === '/activity' }">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>Activity</span>
+        </router-link>
+        
       </nav>
 
       <div class="sidebar-section workspace-section" v-if="workspaceStore.workspaces.length">
@@ -177,6 +185,59 @@
                       </router-link>
                     </div>
                   </div>
+
+                  <!-- Whiteboards -->
+                  <div class="content-group">
+                    <div class="group-header">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <circle cx="15.5" cy="15.5" r="1.5"/>
+                      </svg>
+                      <span>Whiteboards</span>
+                    </div>
+                    <div class="group-items">
+                      <router-link
+                        :to="`/projects/${project._id}?view=whiteboard`"
+                        class="child-link"
+                        :class="{ active: $route.params.id === project._id && $route.query.view === 'whiteboard' }"
+                      >
+                        <span class="view-icon">🧩</span>
+                        <span class="child-name">Board</span>
+                      </router-link>
+                    </div>
+                  </div>
+
+                  <!-- Whiteboards -->
+                  <div class="content-group">
+                    <div class="group-header">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <circle cx="15.5" cy="15.5" r="1.5"/>
+                      </svg>
+                      <span>Whiteboards</span>
+                      <span v-if="getProjectWhiteboards(project._id).length > 0" class="count-badge">
+                        {{ getProjectWhiteboards(project._id).length }}
+                      </span>
+                      <button class="add-btn" @click.stop="createWhiteboard(project._id)">+</button>
+                    </div>
+                    <div class="group-items pages-list">
+                      <router-link
+                        v-for="board in getProjectWhiteboards(project._id)"
+                        :key="board._id"
+                        :to="`/projects/${project._id}?view=whiteboard&id=${board._id}`"
+                        class="child-link"
+                        :class="{ active: $route.params.id === project._id && $route.query.view === 'whiteboard' && $route.query.id === board._id }"
+                      >
+                        <span class="page-icon">🧩</span>
+                        <span class="child-name">{{ board.name || 'Untitled' }}</span>
+                      </router-link>
+                      <div v-if="getProjectWhiteboards(project._id).length === 0" class="empty-hint">
+                        No whiteboards yet
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -236,6 +297,7 @@ import { useWorkspaceStore } from '../stores/workspace'
 import { useProjectStore } from '../stores/project'
 import { usePageStore } from '../stores/page'
 import { useSocketStore } from '../stores/socket'
+import api from '../utils/api'
 import Notifications from './Notifications.vue'
 
 const route = useRoute()
@@ -247,6 +309,7 @@ const pageStore = usePageStore()
 const socketStore = useSocketStore()
 
 const showUserMenu = ref(false)
+const whiteboardsByProject = ref({})
 
 // Load expanded state from localStorage
 const savedExpandedWorkspaces = localStorage.getItem('expandedWorkspaces')
@@ -276,6 +339,7 @@ onMounted(async () => {
   for (const project of projectStore.projects) {
     await pageStore.fetchPages(project._id)
   }
+  await fetchWhiteboardsForProjects(projectStore.projects)
 })
 
 function toggleWorkspace(workspaceId) {
@@ -302,6 +366,10 @@ function getWorkspaceProjects(workspaceId) {
 
 function getProjectPages(projectId) {
   return pageStore.pages.filter(p => p.project === projectId)
+}
+
+function getProjectWhiteboards(projectId) {
+  return whiteboardsByProject.value[projectId] || []
 }
 
 function getVisiblePages(projectId) {
@@ -359,6 +427,39 @@ async function createPage(projectId) {
   }
 }
 
+async function createWhiteboard(projectId) {
+  try {
+    const { data } = await api.post('/whiteboards', {
+      name: 'Untitled Whiteboard',
+      projectId
+    })
+    const current = whiteboardsByProject.value[projectId] || []
+    whiteboardsByProject.value = {
+      ...whiteboardsByProject.value,
+      [projectId]: [data, ...current]
+    }
+    if (!expandedProjects.value.includes(projectId)) {
+      expandedProjects.value.push(projectId)
+    }
+    router.push(`/projects/${projectId}?view=whiteboard&id=${data._id}`)
+  } catch (err) {
+    console.error('Failed to create whiteboard:', err)
+  }
+}
+
+async function fetchWhiteboardsForProjects(projects) {
+  const results = {}
+  for (const project of projects) {
+    try {
+      const { data } = await api.get(`/whiteboards/project/${project._id}`)
+      results[project._id] = data
+    } catch (err) {
+      results[project._id] = []
+    }
+  }
+  whiteboardsByProject.value = results
+}
+
 function handleLogout() {
   authStore.logout()
   socketStore.disconnect()
@@ -402,6 +503,8 @@ function generateColor(str) {
   gap: var(--space-3);
   padding: var(--space-5) var(--space-5) var(--space-6);
   border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .brand-icon {

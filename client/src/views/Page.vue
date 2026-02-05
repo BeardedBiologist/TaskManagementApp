@@ -34,6 +34,19 @@
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </template>
+          <button 
+            class="btn btn-icon btn-ghost activity-toggle"
+            type="button"
+            @click="toggleActivity"
+            :title="showActivity ? 'Hide activity' : 'Show activity'"
+          >
+            <svg v-if="showActivity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
 
         <!-- Cover Image -->
@@ -46,114 +59,236 @@
           </button>
         </div>
 
-        <div class="page-content">
-          <!-- Page Icon -->
-          <div class="page-icon-container">
-            <button 
-              class="page-icon-btn"
-              @click="showIconPicker = true"
-              :class="{ 'empty': !pageStore.currentPage.icon }"
-            >
-              {{ pageStore.currentPage.icon || '➕' }}
-            </button>
-          </div>
-
-          <!-- Icon Picker Modal -->
-          <div v-if="showIconPicker" class="icon-picker-modal" @click.self="showIconPicker = false">
-            <div class="icon-picker-content">
-              <div class="icon-picker-header">
-                <h4>Choose Icon</h4>
-                <button class="close-btn" @click="showIconPicker = false">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="icon-grid">
+        <div class="page-content-wrapper" :class="{ 'activity-hidden': !showActivity }">
+          <div class="page-main">
+            <div class="page-content">
+              <!-- Page Icon -->
+              <div class="page-icon-container">
                 <button 
-                  v-for="icon in commonIcons" 
-                  :key="icon"
-                  class="icon-option"
-                  @click="updatePage({ icon })"
+                  class="page-icon-btn"
+                  @click="showIconPicker = true"
+                  :class="{ 'empty': !pageStore.currentPage.icon }"
                 >
-                  {{ icon }}
+                  {{ pageStore.currentPage.icon || '➕' }}
                 </button>
               </div>
-            </div>
-          </div>
 
-          <!-- Page Title -->
-          <input
-            ref="titleRef"
-            v-model="pageTitle"
-            class="page-title"
-            placeholder="Untitled"
-            @blur="updateTitle"
-            @keydown.enter.prevent="blurTitle"
-          />
+              <!-- Icon Picker Modal -->
+              <div v-if="showIconPicker" class="icon-picker-modal" @click.self="showIconPicker = false">
+                <div class="icon-picker-content">
+                  <div class="icon-picker-header">
+                    <h4>Choose Icon</h4>
+                    <button class="close-btn" @click="showIconPicker = false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="icon-grid">
+                    <button 
+                      v-for="icon in commonIcons" 
+                      :key="icon"
+                      class="icon-option"
+                      @click="updatePage({ icon })"
+                    >
+                      {{ icon }}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-          <!-- Block Editor -->
-          <div class="editor-wrapper">
-            <BlockEditor
-              :initial-blocks="pageStore.currentPage.content"
-              @update="updateContent"
-            />
-          </div>
+              <!-- Online Users -->
+              <div class="online-users-bar">
+                <LiveCursors :show-avatars="true" />
+              </div>
 
-          <!-- Tasks Section -->
-          <div class="page-section">
-            <div class="section-header">
-              <div class="section-icon">✓</div>
-              <h3>Tasks in this page</h3>
-              <span class="task-count">{{ pageTasks.length }}</span>
-            </div>
-            <div v-if="pageTasks.length > 0" class="page-tasks">
-              <div
-                v-for="task in pageTasks"
-                :key="task._id"
-                class="task-item"
-                @click="openTask(task)"
-              >
-                <div class="task-status" :class="task.columnId">
-                  <svg v-if="task.columnId === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"/>
+              <!-- Page Title -->
+              <input
+                ref="titleRef"
+                v-model="pageTitle"
+                class="page-title"
+                placeholder="Untitled"
+                @blur="updateTitle"
+                @keydown.enter.prevent="blurTitle"
+                @focus="updateActivity('typing')"
+                @input="updateActivity('typing')"
+              />
+
+              <!-- Block Editor -->
+              <div class="editor-wrapper" ref="editorWrapper">
+                <BlockEditor
+                  :initial-blocks="pageStore.currentPage.content"
+                  @update="updateContent"
+                  @cursor-move="handleCursorMove"
+                />
+              </div>
+
+              <!-- Tasks Section -->
+              <div class="page-section">
+                <div class="section-header">
+                  <div class="section-icon">✓</div>
+                  <h3>Tasks in this page</h3>
+                  <span class="task-count">{{ pageTasks.length }}</span>
+                </div>
+                <div v-if="pageTasks.length > 0" class="page-tasks">
+                  <div
+                    v-for="task in pageTasks"
+                    :key="task._id"
+                    class="task-item"
+                    @click="openTask(task)"
+                  >
+                    <div class="task-status" :class="task.columnId">
+                      <svg v-if="task.columnId === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </div>
+                    <span class="task-title">{{ task.title }}</span>
+                    <div class="task-priority" :class="task.priority">{{ task.priority }}</div>
+                  </div>
+                </div>
+                <button class="add-task-btn" @click="createTaskFromPage">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
+                  Add a task
+                </button>
+              </div>
+
+              <!-- Calendar Events Section -->
+              <div v-if="calendarTasks.length > 0" class="page-section">
+                <div class="section-header">
+                  <div class="section-icon">📅</div>
+                  <h3>Calendar Events</h3>
                 </div>
-                <span class="task-title">{{ task.title }}</span>
-                <div class="task-priority" :class="task.priority">{{ task.priority }}</div>
+                <div class="calendar-events">
+                  <div
+                    v-for="task in calendarTasks"
+                    :key="task._id"
+                    class="event-item"
+                    @click="openTask(task)"
+                  >
+                    <div class="event-date">
+                      <span class="event-day">{{ formatDay(task.dueDate) }}</span>
+                      <span class="event-month">{{ formatMonth(task.dueDate) }}</span>
+                    </div>
+                    <span class="event-title">{{ task.title }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Comments Section -->
+              <div class="page-section comments-section">
+                <div class="section-header">
+                  <div class="section-icon">💬</div>
+                  <h3>Comments</h3>
+                  <span class="task-count">{{ collaborationStore.activeComments.length }}</span>
+                </div>
+                
+                <!-- Comment List -->
+                <div class="comments-list">
+                  <div
+                    v-for="comment in collaborationStore.comments"
+                    :key="comment._id"
+                    class="comment-item"
+                    :class="{ resolved: comment.status === 'resolved' }"
+                  >
+                    <div class="comment-avatar">
+                      {{ getInitials(comment.author?.name) }}
+                    </div>
+                    <div class="comment-content">
+                      <div class="comment-header">
+                        <strong>{{ comment.author?.name || 'Unknown' }}</strong>
+                        <time>{{ formatTime(comment.createdAt) }}</time>
+                      </div>
+                      <p class="comment-text">{{ comment.content }}</p>
+                      <div class="comment-actions">
+                        <button 
+                          v-if="comment.status === 'open'" 
+                          class="resolve-btn"
+                          @click="resolveComment(comment._id)"
+                        >
+                          Resolve
+                        </button>
+                        <span v-else class="resolved-badge">✓ Resolved</span>
+                      </div>
+                      
+                      <!-- Replies -->
+                      <div v-if="comment.replies?.length" class="comment-replies">
+                        <div
+                          v-for="reply in comment.replies"
+                          :key="reply._id"
+                          class="reply-item"
+                        >
+                          <strong>{{ reply.author?.name }}</strong>
+                          <p>{{ reply.content }}</p>
+                        </div>
+                      </div>
+                      
+                      <!-- Reply Input -->
+                      <div class="reply-input">
+                        <input
+                          v-model="replyTexts[comment._id]"
+                          type="text"
+                          placeholder="Reply..."
+                          @keydown.enter="addReply(comment._id)"
+                        />
+                        <button @click="addReply(comment._id)">Reply</button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div v-if="collaborationStore.comments.length === 0" class="no-comments">
+                    No comments yet. Be the first to comment!
+                  </div>
+                </div>
+                
+                <!-- New Comment -->
+                <div class="new-comment">
+                  <input
+                    v-model="newCommentText"
+                    type="text"
+                    placeholder="Add a comment... (use @ to mention)"
+                    @keydown.enter="addComment"
+                  />
+                  <button class="btn-primary" @click="addComment" :disabled="!newCommentText.trim()">
+                    Comment
+                  </button>
+                </div>
               </div>
             </div>
-            <button class="add-task-btn" @click="createTaskFromPage">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add a task
-            </button>
           </div>
 
-          <!-- Calendar Events Section -->
-          <div v-if="calendarTasks.length > 0" class="page-section">
-            <div class="section-header">
-              <div class="section-icon">📅</div>
-              <h3>Calendar Events</h3>
+          <!-- Sidebar Activity Feed -->
+          <aside class="page-sidebar" v-if="showActivity">
+            <div class="activity-header">
+              <span>Activity</span>
+              <button class="btn btn-icon btn-ghost" type="button" @click="toggleActivity" title="Hide activity">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
-            <div class="calendar-events">
-              <div
-                v-for="task in calendarTasks"
-                :key="task._id"
-                class="event-item"
-                @click="openTask(task)"
-              >
-                <div class="event-date">
-                  <span class="event-day">{{ formatDay(task.dueDate) }}</span>
-                  <span class="event-month">{{ formatMonth(task.dueDate) }}</span>
-                </div>
-                <span class="event-title">{{ task.title }}</span>
-              </div>
-            </div>
-          </div>
+            <ActivityFeed
+              :activities="collaborationStore.activities"
+              :compact="true"
+              :limit="10"
+              @load-more="loadMoreActivities"
+            />
+          </aside>
+          <button
+            v-if="!showActivity"
+            class="btn btn-icon btn-ghost activity-reopen"
+            type="button"
+            @click="toggleActivity"
+            title="Show activity"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
       </template>
 
@@ -165,26 +300,35 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePageStore } from '../stores/page'
 import { useProjectStore } from '../stores/project'
+import { useAuthStore } from '../stores/auth'
 import { useSocketStore } from '../stores/socket'
-import { useThemeStore } from '../stores/theme'
+import { useCollaborationStore } from '../stores/collaboration'
 import Layout from '../components/Layout.vue'
 import BlockEditor from '../components/BlockEditor.vue'
+import LiveCursors from '../components/LiveCursors.vue'
+import ActivityFeed from '../components/ActivityFeed.vue'
+import api from '../utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const pageStore = usePageStore()
 const projectStore = useProjectStore()
+const authStore = useAuthStore()
 const socketStore = useSocketStore()
-const themeStore = useThemeStore()
+const collaborationStore = useCollaborationStore()
 
 const titleRef = ref(null)
 const pageTitle = ref('')
 const showIconPicker = ref(false)
 const isCreatingTask = ref(false)
+const newCommentText = ref('')
+const replyTexts = ref({})
+const savedActivity = localStorage.getItem('pageActivityVisible')
+const showActivity = ref(savedActivity ? JSON.parse(savedActivity) : true)
 
 const commonIcons = [
   '📄', '📝', '📋', '📑', '📂', '📁', '📊', '📈',
@@ -213,19 +357,58 @@ onMounted(async () => {
   
   if (pageId) {
     await loadPage(pageId)
-    // Load tasks for this project
     await projectStore.fetchProject(projectId)
+    
+    // Join collaboration room
+    if (pageStore.currentPage) {
+      collaborationStore.joinRoom('page', pageId, {
+        _id: authStore.user?._id,
+        name: authStore.userName,
+        initials: authStore.userInitials
+      })
+    }
+    
+    // Load comments
+    await loadComments()
+    
+    // Load activities
+    await loadActivities()
   }
   
-  // Setup socket listeners for real-time updates
+  // Setup socket listeners
   socketStore.on('page_updated', handlePageUpdate)
   socketStore.on('task_updated', handleTaskUpdate)
+  socketStore.on('comment-added', handleCommentAdded)
+  socketStore.on('comment-resolved', handleCommentResolved)
+})
+
+function toggleActivity() {
+  showActivity.value = !showActivity.value
+  localStorage.setItem('pageActivityVisible', JSON.stringify(showActivity.value))
+}
+
+onUnmounted(() => {
+  collaborationStore.leaveRoom()
+  socketStore.off('page_updated')
+  socketStore.off('task_updated')
+  socketStore.off('comment-added')
+  socketStore.off('comment-resolved')
 })
 
 watch(() => route.params.pageId, async (newPageId) => {
   if (newPageId) {
+    collaborationStore.leaveRoom()
     await loadPage(newPageId)
     await projectStore.fetchProject(route.params.id)
+    
+    collaborationStore.joinRoom('page', newPageId, {
+      _id: authStore.user?._id,
+      name: authStore.userName,
+      initials: authStore.userInitials
+    })
+    
+    await loadComments()
+    await loadActivities()
   }
 })
 
@@ -235,7 +418,6 @@ async function loadPage(pageId) {
     await pageStore.fetchBreadcrumb(pageId)
     pageTitle.value = pageStore.currentPage?.title || ''
     
-    // Auto-focus title for new pages
     if (pageTitle.value === 'Untitled' || !pageStore.currentPage?.content?.length) {
       nextTick(() => {
         titleRef.value?.focus()
@@ -245,6 +427,89 @@ async function loadPage(pageId) {
   } catch (err) {
     console.error('Failed to load page:', err)
   }
+}
+
+async function loadComments() {
+  try {
+    const { data } = await api.get(`/comments/page/${route.params.pageId}`)
+    collaborationStore.setComments(data)
+  } catch (err) {
+    console.error('Failed to load comments:', err)
+  }
+}
+
+async function loadActivities() {
+  try {
+    const { data } = await api.get(`/activities/project/${route.params.id}?limit=20`)
+    collaborationStore.setActivities(data)
+  } catch (err) {
+    console.error('Failed to load activities:', err)
+  }
+}
+
+async function loadMoreActivities() {
+  // Implementation for pagination
+}
+
+async function addComment() {
+  if (!newCommentText.value.trim()) return
+  
+  try {
+    const { data } = await api.post('/comments', {
+      targetType: 'page',
+      targetId: route.params.pageId,
+      content: newCommentText.value,
+      projectId: route.params.id,
+      workspaceId: projectStore.currentProject?.workspace
+    })
+    
+    collaborationStore.addComment(data)
+    newCommentText.value = ''
+    
+    // Emit via socket
+    socketStore.emit('comment-add', data)
+  } catch (err) {
+    console.error('Failed to add comment:', err)
+  }
+}
+
+async function addReply(commentId) {
+  const text = replyTexts.value[commentId]
+  if (!text?.trim()) return
+  
+  try {
+    const { data } = await api.post(`/comments/${commentId}/replies`, {
+      content: text
+    })
+    
+    collaborationStore.updateComment(commentId, { replies: data.replies })
+    replyTexts.value[commentId] = ''
+  } catch (err) {
+    console.error('Failed to add reply:', err)
+  }
+}
+
+async function resolveComment(commentId) {
+  try {
+    await api.put(`/comments/${commentId}/resolve`)
+    collaborationStore.resolveComment(commentId, authStore.user)
+    
+    socketStore.emit('comment-resolve', {
+      targetType: 'page',
+      targetId: route.params.pageId,
+      commentId
+    })
+  } catch (err) {
+    console.error('Failed to resolve comment:', err)
+  }
+}
+
+function handleCommentAdded(comment) {
+  collaborationStore.addComment(comment)
+}
+
+function handleCommentResolved({ commentId, resolvedBy }) {
+  collaborationStore.resolveComment(commentId, resolvedBy)
 }
 
 function updateTitle() {
@@ -273,17 +538,29 @@ async function updatePage(updates) {
 }
 
 async function updateContent(content) {
-  // Debounce content updates
   if (updateContent.timeout) {
     clearTimeout(updateContent.timeout)
   }
   updateContent.timeout = setTimeout(async () => {
     await updatePage({ content })
+    
+    // Emit real-time content update
+    socketStore.emit('page-content-update', {
+      pageId: route.params.pageId,
+      content
+    })
   }, 1000)
 }
 
+function handleCursorMove({ x, y, blockId }) {
+  collaborationStore.updateCursor(x, y, blockId)
+}
+
+function updateActivity(activity) {
+  collaborationStore.updateActivity(activity)
+}
+
 function openTask(task) {
-  // Open task in project view or task panel
   router.push(`/projects/${route.params.id}?task=${task._id}`)
 }
 
@@ -321,6 +598,24 @@ function handleTaskUpdate(task) {
   // Task store handles the update
 }
 
+function getInitials(name) {
+  if (!name) return '?'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now - date
+  
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(diff / 3600000)
+  if (hours < 24) return `${hours}h ago`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 function formatDay(date) {
   return new Date(date).getDate()
 }
@@ -332,7 +627,7 @@ function formatMonth(date) {
 
 <style scoped>
 .page-container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
 }
@@ -367,6 +662,10 @@ function formatMonth(date) {
   gap: var(--space-1);
   margin-bottom: var(--space-6);
   font-size: 14px;
+}
+
+.activity-toggle {
+  margin-left: auto;
 }
 
 .crumb-link {
@@ -447,6 +746,63 @@ function formatMonth(date) {
 .cover-remove svg {
   width: 16px;
   height: 16px;
+}
+
+/* Page Layout */
+.page-content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--space-8);
+}
+
+.page-content-wrapper.activity-hidden {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 1024px) {
+  .page-content-wrapper {
+    grid-template-columns: 1fr;
+  }
+  
+  .page-sidebar {
+    display: none;
+  }
+}
+
+.page-main {
+  min-width: 0;
+}
+
+.page-sidebar {
+  position: sticky;
+  top: var(--space-4);
+  height: fit-content;
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0 var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-6);
+  font-weight: 600;
+}
+
+.activity-reopen {
+  position: sticky;
+  top: var(--space-4);
+  align-self: flex-start;
+  margin-left: auto;
+}
+
+/* Online Users */
+.online-users-bar {
+  margin-bottom: var(--space-4);
+  padding: var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 
 /* Page Content */
@@ -784,6 +1140,201 @@ function formatMonth(date) {
   flex: 1;
   font-size: 14px;
   color: var(--text-primary);
+}
+
+/* Comments Section */
+.comments-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.comment-item {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+}
+
+.comment-item.resolved {
+  opacity: 0.6;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-800));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.comment-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.comment-header strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.comment-header time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.comment-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-2) 0;
+  line-height: 1.5;
+}
+
+.comment-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.resolve-btn {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.resolve-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.resolved-badge {
+  font-size: 12px;
+  color: var(--success-500);
+}
+
+.comment-replies {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reply-item {
+  padding: var(--space-2);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+
+.reply-item strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.reply-item p {
+  color: var(--text-secondary);
+  margin: var(--space-1) 0 0 0;
+}
+
+.reply-input {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.reply-input input {
+  flex: 1;
+  padding: var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.reply-input button {
+  padding: var(--space-2) var(--space-3);
+  background: var(--primary-500);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.no-comments {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.new-comment {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.new-comment input {
+  flex: 1;
+  padding: var(--space-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.new-comment input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.btn-primary {
+  padding: var(--space-3) var(--space-4);
+  background: var(--primary-500);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .error {
