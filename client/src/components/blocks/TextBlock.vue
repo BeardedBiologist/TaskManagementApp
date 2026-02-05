@@ -10,7 +10,6 @@
     @compositionstart="onCompositionStart"
     @compositionend="onCompositionEnd"
     @focus="onFocus"
-    v-html="sanitizedContent"
   />
 </template>
 
@@ -42,6 +41,9 @@ watch(() => props.isSelected, (selected) => {
 })
 
 onMounted(() => {
+  if (editor.value) {
+    editor.value.innerText = sanitizedContent.value
+  }
   if (props.isSelected) {
     nextTick(() => {
       editor.value?.focus()

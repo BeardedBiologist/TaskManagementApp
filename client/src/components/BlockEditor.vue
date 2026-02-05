@@ -9,7 +9,8 @@
           'is-selected': selectedBlock === index,
           'is-dragging': draggingIndex === index,
           'is-drop-target': dropTargetIndex === index,
-          'is-range': isInRange(index)
+          'is-range': isInRange(index),
+          'is-list-item': ['todo', 'bullet', 'numbered'].includes(block.type)
         }"
         @click="selectBlock(index, $event)"
         @dragstart="handleDragStart($event, index)"
@@ -40,6 +41,7 @@
             :block="block"
             :is-selected="selectedBlock === index"
             :block-index="index"
+            :number="getBlockNumber(index)"
             @update="updateBlock(index, $event)"
             @delete="deleteBlock(index)"
             @enter="splitBlock(index, $event)"
@@ -63,6 +65,19 @@
         </div>
 
         <div class="block-actions" v-if="selectedBlock === index">
+          <button 
+            v-if="blocks[index].type === 'numbered'"
+            class="block-action-btn" 
+            @click.stop="toggleNumberRestart(index)" 
+            :title="blocks[index].start ? 'Continue numbering' : 'Restart numbering'"
+            :class="{ active: blocks[index].start }"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/>
+              <path d="M12 8v8"/>
+              <path d="M12 3v1"/>
+            </svg>
+          </button>
           <button class="block-action-btn" @click.stop="showTypeMenu(index, $event)" title="Change block type">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 6h16M4 12h10M4 18h7"/>
@@ -227,6 +242,28 @@ function getBlockComponent(type) {
     image: ImageBlock
   }
   return components[type] || TextBlock
+}
+
+function getBlockNumber(index) {
+  const block = blocks.value[index]
+  if (block.type !== 'numbered') return 1
+
+  // Find the start of the current contiguous numbered list segment
+  let startIdx = index
+  while (startIdx > 0 && blocks.value[startIdx - 1].type === 'numbered') {
+    startIdx--
+  }
+
+  // If there is an explicit restart within this segment, use it
+  for (let i = index; i >= startIdx; i--) {
+    const b = blocks.value[i]
+    if (b.start !== undefined) {
+      return b.start + (index - i)
+    }
+  }
+
+  // Default: 1..n within the contiguous segment
+  return index - startIdx + 1
 }
 
 function selectBlock(index, event) {
@@ -530,6 +567,18 @@ function moveBlockBy(delta) {
   emit('update', blocks.value)
 }
 
+function toggleNumberRestart(index) {
+  const block = blocks.value[index]
+  if (block.type !== 'numbered') return
+  
+  if (block.start) {
+    delete block.start
+  } else {
+    block.start = 1
+  }
+  emit('update', blocks.value)
+}
+
 function isInRange(index) {
   if (!selectedRange.value) return false
   return index >= selectedRange.value.start && index <= selectedRange.value.end
@@ -554,6 +603,11 @@ function isInRange(index) {
   border-radius: var(--radius-sm);
   transition: background-color 0.1s ease, opacity 0.2s ease;
   width: 100%;
+}
+
+.block-wrapper.is-list-item {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .block-wrapper:hover {
