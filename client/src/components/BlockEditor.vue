@@ -539,8 +539,6 @@ function isInRange(index) {
 <style scoped>
 .block-editor {
   width: 100%;
-  max-width: 760px;
-  margin: 0 auto;
 }
 
 .editor-content {
@@ -698,7 +696,7 @@ function isInRange(index) {
 }
 
 .empty-blocks {
-  padding: var(--space-4);
+  padding: 0 var(--space-4);
   color: var(--text-muted);
   cursor: text;
   border-radius: var(--radius-md);

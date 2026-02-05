@@ -1244,7 +1244,7 @@ async function duplicatePage() {
   border: none;
   outline: none;
   color: var(--text-primary);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-1);
   padding: 0;
   line-height: 1.1;
   letter-spacing: -0.01em;
@@ -1257,7 +1257,6 @@ async function duplicatePage() {
 /* Editor */
 .editor-wrapper {
   margin-bottom: var(--space-12);
-  margin-left: -20px;
 }
 
 /* Page Sections */
