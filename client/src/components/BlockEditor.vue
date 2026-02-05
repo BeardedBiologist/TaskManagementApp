@@ -605,6 +605,15 @@ function isInRange(index) {
   width: 100%;
 }
 
+.block-wrapper::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -80px;
+  width: 80px;
+}
+
 .block-wrapper.is-list-item {
   padding-top: 0;
   padding-bottom: 0;
@@ -681,7 +690,7 @@ function isInRange(index) {
 
 .add-block-btn {
   position: absolute;
-  left: -24px;
+  left: -48px;
   top: 50%;
   transform: translateY(-50%);
   width: 20px;

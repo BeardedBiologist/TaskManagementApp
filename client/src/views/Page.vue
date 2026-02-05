@@ -679,9 +679,10 @@ async function updatePage(updates) {
       pageId: pageStore.currentPage._id,
       updates
     })
-    if (updates.title || updates.content) {
-      await fetchAllProjectPages(route.params.id)
-    }
+    
+    // Refresh pages to ensure sidebar is in sync
+    await pageStore.fetchPages(route.params.id)
+    await fetchAllProjectPages(route.params.id)
   } catch (err) {
     console.error('Failed to update page:', err)
   }

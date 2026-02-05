@@ -387,7 +387,7 @@ function getWorkspaceProjects(workspaceId) {
 }
 
 function getProjectPages(projectId) {
-  return pageStore.pages.filter(p => p.project === projectId)
+  return pageStore.pages.filter(p => (p.project?._id || p.project) === projectId)
 }
 
 function getProjectWhiteboards(projectId) {
