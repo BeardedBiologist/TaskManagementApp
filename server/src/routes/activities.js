@@ -85,9 +85,21 @@ router.get('/all', authenticate, async (req, res, next) => {
     const { limit = 50, before } = req.query;
 
     const user = await User.findById(req.user._id);
-    const workspaceIds = (user?.workspaces || []).map(w => w.workspace);
+    const workspaceIds = (user?.workspaces || []).map(w => w.workspace).filter(Boolean);
+    const projectIds = await Project.find({
+      $or: [
+        { 'members.user': req.user._id },
+        { createdBy: req.user._id }
+      ]
+    }).distinct('_id');
 
-    const query = { workspace: { $in: workspaceIds } };
+    const query = {
+      $or: [
+        { workspace: { $in: workspaceIds } },
+        { project: { $in: projectIds } },
+        { user: req.user._id }
+      ]
+    };
     if (before) {
       query.timestamp = { $lt: new Date(before) };
     }

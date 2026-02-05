@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import Project from '../models/Project.js';
 import Workspace from '../models/Workspace.js';
 import Task from '../models/Task.js';
+import Activity from '../models/Activity.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -99,6 +100,18 @@ router.post('/', authenticate, [
     await workspace.save();
 
     await project.populate('workspace createdBy members.user');
+
+    const activity = await Activity.log({
+      type: 'project.created',
+      user: req.user._id,
+      workspace: workspace._id,
+      project: project._id,
+      targetType: 'project',
+      targetId: project._id,
+      targetName: project.name
+    });
+    // Emit to workspace room so it appears in workspace activity
+    req.io.to(`workspace:${workspace._id}`).emit('activity', activity);
 
     res.status(201).json(project);
   } catch (error) {
@@ -202,6 +215,19 @@ router.post('/:id/members', authenticate, async (req, res, next) => {
 
     req.io.to(`project:${project._id}`).emit('project-updated', project);
 
+    const user = await (await import('../models/User.js')).default.findById(userId);
+    const activity = await Activity.log({
+      type: 'project.member.added',
+      user: req.user._id,
+      workspace: project.workspace,
+      project: project._id,
+      targetType: 'user',
+      targetId: userId,
+      targetName: user ? `${user.name.first} ${user.name.last}` : 'User',
+      metadata: { role }
+    });
+    req.io.to(`project:${project._id}`).emit('activity', activity);
+
     res.json(project);
   } catch (error) {
     next(error);
@@ -245,6 +271,23 @@ router.post('/:id/sync-members', authenticate, async (req, res, next) => {
 
     await project.populate('workspace createdBy members.user');
     req.io.to(`project:${project._id}`).emit('project-updated', project);
+
+    if (additions.length > 0) {
+      const activity = await Activity.log({
+        type: 'project.member.added',
+        user: req.user._id,
+        workspace: project.workspace,
+        project: project._id,
+        targetType: 'project',
+        targetId: project._id,
+        targetName: project.name,
+        metadata: { 
+          count: additions.length,
+          synced: true 
+        }
+      });
+      req.io.to(`project:${project._id}`).emit('activity', activity);
+    }
 
     res.json({ project, added: additions.length });
   } catch (error) {

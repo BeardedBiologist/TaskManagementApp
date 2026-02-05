@@ -1,6 +1,8 @@
 import express from 'express';
 import Whiteboard from '../models/Whiteboard.js';
+
 import Project from '../models/Project.js';
+import Activity from '../models/Activity.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -86,6 +88,22 @@ router.post('/', authenticate, async (req, res, next) => {
       userId: req.user._id
     });
     
+    req.io.to(`project:${projectId}`).emit('whiteboard-created', {
+      whiteboard,
+      userId: req.user._id
+    });
+    
+    const activity = await Activity.log({
+      type: 'whiteboard.created',
+      user: req.user._id,
+      workspace: project.workspace,
+      project: projectId,
+      targetType: 'whiteboard',
+      targetId: whiteboard._id,
+      targetName: whiteboard.name
+    });
+    req.io.to(`project:${projectId}`).emit('activity', activity);
+
     res.status(201).json(whiteboard);
   } catch (error) {
     next(error);
@@ -145,6 +163,17 @@ router.delete('/:id', authenticate, async (req, res, next) => {
       userId: req.user._id
     });
     
+    const activity = await Activity.log({
+      type: 'whiteboard.deleted',
+      user: req.user._id,
+      workspace: project.workspace,
+      project: whiteboard.project,
+      targetType: 'whiteboard',
+      targetId: whiteboard._id,
+      targetName: whiteboard.name
+    });
+    req.io.to(`project:${whiteboard.project}`).emit('activity', activity);
+
     res.json({ message: 'Whiteboard deleted' });
   } catch (error) {
     next(error);

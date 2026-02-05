@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import Page from '../models/Page.js';
 import Project from '../models/Project.js';
+import Activity from '../models/Activity.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -166,6 +167,19 @@ router.post('/', authenticate, async (req, res) => {
     await page.save();
     await page.populate('owner', 'name email');
     
+    // Log activity
+    const activity = await Activity.log({
+      type: 'page.created',
+      user: req.user._id,
+      workspace: projectDoc.workspace,
+      project: projectDoc._id,
+      targetType: 'page',
+      targetId: page._id,
+      targetName: page.title
+    });
+    // Emit to project room
+    req.io.to(`project:${project}`).emit('activity', activity);
+
     res.status(201).json(page);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -189,6 +203,21 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Page not found' });
     }
     
+    // Log activity only if title changed or significant update
+    if (updates.title) {
+        const activity = await Activity.log({
+          type: 'page.updated',
+          user: req.user._id,
+          workspace: page.project.workspace,
+          project: page.project._id,
+          targetType: 'page',
+          targetId: page._id,
+          targetName: page.title,
+          metadata: { changes: [{ field: 'Title', to: updates.title }] }
+        });
+        req.io.to(`project:${page.project._id}`).emit('activity', activity);
+    } 
+
     res.json(page);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -211,7 +240,45 @@ router.delete('/:id', authenticate, async (req, res) => {
     if (!page) {
       return res.status(404).json({ message: 'Page not found' });
     }
+
+    // Need to fetch project info before deletion for logging, but we only have ID now.
+    // Ideally should fetch before delete, but assuming we can get workspace context if we had looked it up.
+    // For now, simpler to skip workspace context if we didn't fetch it, or do a fetch before delete.
+    // Let's rely on client context or just log what we can. 
+    // Actually, let's look up the page before deleting to get context.
     
+    // Refactoring to fetch first
+    /* 
+       Wait, I can't undo the delete line above easily with this tool without changing more context.
+       However, the previous block I wrote was:
+       const page = await Page.findByIdAndDelete(req.params.id);
+       
+       I will assume the user is okay with me fetching it first in a cleaner implementation if I were rewriting the whole block, 
+       but here I must stick to the replacement chunk constraints.
+       
+       Actually, `findByIdAndDelete` returns the document found. So `page` variable holds the deleted doc.
+       However, it doesn't have populated fields unless I populate them.
+       Let's attempt to look up project from the deleted doc's project ID if needed, or just log basic info.
+    */
+    
+    if (page.project) {
+        // Try to find project to get workspace link, or just log what we have
+        const project = await Project.findById(page.project);
+        
+        const activity = await Activity.log({
+            type: 'page.deleted',
+            user: req.user._id,
+            workspace: project?.workspace,
+            project: page.project,
+            targetType: 'page',
+            targetId: page._id,
+            targetName: page.title
+        });
+        if (project) {
+            req.io.to(`project:${project._id}`).emit('activity', activity);
+        }
+    }
+
     res.json({ message: 'Page deleted' });
   } catch (err) {
     res.status(500).json({ message: err.message });
