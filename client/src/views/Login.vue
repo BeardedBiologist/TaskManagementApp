@@ -67,6 +67,7 @@
 
       <div class="auth-footer">
         <p>Don't have an account? <router-link to="/register">Create one</router-link></p>
+        <p class="back-link"><router-link to="/">← Back to home</router-link></p>
       </div>
     </div>
 
@@ -98,7 +99,7 @@ async function handleLogin() {
   const success = await authStore.login(form.email, form.password)
   if (success) {
     socketStore.connect()
-    router.push('/')
+    router.push('/dashboard')
   }
 }
 </script>
@@ -239,6 +240,11 @@ async function handleLogin() {
 
 .auth-footer a:hover {
   text-decoration: underline;
+}
+
+.back-link {
+  margin-top: var(--space-3);
+  font-size: 0.8125rem;
 }
 
 /* Background decoration */

@@ -75,6 +75,19 @@
             </div>
 
             <div class="filters">
+              <button 
+                class="btn btn-icon btn-ghost activity-toggle"
+                type="button"
+                @click="toggleActivity"
+                :title="showActivity ? 'Hide activity' : 'Show activity'"
+              >
+                <svg v-if="showActivity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
               <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="11" cy="11" r="8"/>
@@ -118,9 +131,10 @@
         </header>
 
         <!-- Main Content Area -->
-        <div class="project-content">
+        <div class="project-content-wrapper">
+          <div class="project-main">
           <!-- Empty State -->
-          <div v-if="filteredTasks.length === 0" class="empty-state">
+          <div v-if="filteredTasks.length === 0 && currentView !== 'whiteboard'" class="empty-state">
             <div class="empty-illustration">
               <svg viewBox="0 0 120 120" fill="none">
                 <circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="1" opacity="0.2"/>
@@ -273,6 +287,49 @@
             @select-task="selectTask"
             @update-task="updateTask"
           />
+          
+          <!-- Whiteboard View -->
+          <div v-else-if="currentView === 'whiteboard'" class="whiteboard-view">
+            <Whiteboard
+              :initial-elements="whiteboardElements"
+              @update="updateWhiteboard"
+              @element-add="addWhiteboardElement"
+              @element-update="updateWhiteboardElement"
+              @element-delete="deleteWhiteboardElement"
+            />
+            <LiveCursors class="whiteboard-cursors" />
+          </div>
+          </div>
+          
+          <!-- Activity Feed Sidebar -->
+          <aside class="project-sidebar" v-if="currentView !== 'whiteboard' && showActivity">
+            <div class="activity-header">
+              <span>Activity</span>
+              <button class="btn btn-icon btn-ghost" type="button" @click="showActivity = false" title="Hide activity">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <ActivityFeed
+              :activities="collaborationStore.activities"
+              :compact="true"
+              :limit="15"
+              @load-more="loadMoreActivities"
+            />
+          </aside>
+          <button
+            v-if="currentView !== 'whiteboard' && !showActivity"
+            class="btn btn-icon btn-ghost activity-reopen"
+            type="button"
+            @click="toggleActivity"
+            title="Show activity"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
         </div>
       </template>
 
@@ -349,25 +406,34 @@ import { useRoute, useRouter } from 'vue-router'
 import Layout from '../components/Layout.vue'
 import TaskPanel from '../components/TaskPanel.vue'
 import TimelineView from '../components/TimelineView.vue'
+import Whiteboard from '../components/Whiteboard.vue'
+import ActivityFeed from '../components/ActivityFeed.vue'
+import LiveCursors from '../components/LiveCursors.vue'
 import { useProjectStore } from '../stores/project'
 import { useSocketStore } from '../stores/socket'
 import { useAuthStore } from '../stores/auth'
+import { useCollaborationStore } from '../stores/collaboration'
 import { formatDate, formatShortDate, getInitials, isOverdue } from '../utils/helpers'
+import api from '../utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
 const socketStore = useSocketStore()
 const authStore = useAuthStore()
+const collaborationStore = useCollaborationStore()
 
 const loading = ref(true)
 const currentView = ref('list')
 const selectedTask = ref(null)
 const showCreateTask = ref(false)
+const savedActivity = localStorage.getItem('projectActivityVisible')
+const showActivity = ref(savedActivity ? JSON.parse(savedActivity) : true)
 const creating = ref(false)
 const searchQuery = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
+const whiteboardElements = ref([])
 
 // Drag and drop state
 const draggingTask = ref(null)
@@ -388,6 +454,11 @@ const views = [
     id: 'timeline', 
     label: 'Timeline',
     icon: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 12h8"/>'
+  },
+  { 
+    id: 'whiteboard', 
+    label: 'Whiteboard',
+    icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><circle cx="15.5" cy="15.5" r="1.5"/>'
   }
 ]
 
@@ -456,17 +527,24 @@ function getColumnColor(columnId) {
 
 onMounted(async () => {
   // Set view from URL query if present
-  if (route.query.view && ['list', 'board', 'timeline'].includes(route.query.view)) {
+  if (route.query.view && ['list', 'board', 'timeline', 'whiteboard'].includes(route.query.view)) {
     currentView.value = route.query.view
   }
   await projectStore.fetchProject(route.params.id)
+  await loadActivities()
   socketStore.joinProject(route.params.id)
+  collaborationStore.joinRoom('project', route.params.id, {
+    _id: authStore.user?._id,
+    name: authStore.userName,
+    initials: authStore.userInitials
+  })
   setupSocketListeners()
   loading.value = false
 })
 
 onUnmounted(() => {
   socketStore.leaveProject(route.params.id)
+  collaborationStore.leaveRoom()
   removeSocketListeners()
 })
 
@@ -483,10 +561,68 @@ function setView(viewId) {
   router.replace({ query: { ...route.query, view: viewId } })
 }
 
+function toggleActivity() {
+  showActivity.value = !showActivity.value
+  localStorage.setItem('projectActivityVisible', JSON.stringify(showActivity.value))
+}
+
 function setupSocketListeners() {
   socketStore.on('task-created', (task) => projectStore.addTaskToState(task))
   socketStore.on('task-updated', (task) => projectStore.updateTaskInState(task))
   socketStore.on('task-deleted', ({ taskId }) => projectStore.removeTaskFromState(taskId))
+  
+  // Whiteboard real-time updates
+  socketStore.on('whiteboard-element-added', ({ element }) => {
+    whiteboardElements.value.push(element)
+  })
+  socketStore.on('whiteboard-element-updated', ({ elementId, updates }) => {
+    const el = whiteboardElements.value.find(e => e.id === elementId)
+    if (el) Object.assign(el, updates)
+  })
+  socketStore.on('whiteboard-element-deleted', ({ elementId }) => {
+    whiteboardElements.value = whiteboardElements.value.filter(e => e.id !== elementId)
+  })
+}
+
+// Whiteboard functions
+function updateWhiteboard(elements) {
+  whiteboardElements.value = elements
+}
+
+function addWhiteboardElement(element) {
+  socketStore.emit('whiteboard-element-add', {
+    whiteboardId: route.params.id,
+    element
+  })
+}
+
+function updateWhiteboardElement({ elementId, updates }) {
+  socketStore.emit('whiteboard-element-update', {
+    whiteboardId: route.params.id,
+    elementId,
+    updates
+  })
+}
+
+function deleteWhiteboardElement(elementId) {
+  socketStore.emit('whiteboard-element-delete', {
+    whiteboardId: route.params.id,
+    elementId
+  })
+}
+
+// Activity feed
+async function loadActivities() {
+  try {
+    const { data } = await api.get(`/activities/project/${route.params.id}?limit=20`)
+    collaborationStore.setActivities(data)
+  } catch (err) {
+    console.error('Failed to load activities:', err)
+  }
+}
+
+async function loadMoreActivities() {
+  // Load more with pagination
 }
 
 function removeSocketListeners() {
@@ -1019,7 +1155,7 @@ async function handleColumnDrop(e, targetColumnId) {
 }
 
 .board-column {
-  width: 300px;
+  width: 280px;
   flex-shrink: 0;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
@@ -1280,5 +1416,77 @@ async function handleColumnDrop(e, targetColumnId) {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Whiteboard View */
+.whiteboard-view {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  height: calc(100vh - 220px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.whiteboard-cursors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Project Content Wrapper */
+.project-content-wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.project-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-8) var(--space-6);
+}
+
+/* Project Sidebar (Activity Feed) */
+.project-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  padding: var(--space-6);
+  overflow-y: auto;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.activity-toggle {
+  margin-right: var(--space-2);
+}
+
+.activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) 0 var(--space-5);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-6);
+}
+
+.activity-reopen {
+  position: sticky;
+  top: var(--space-4);
+  align-self: flex-start;
+  margin-left: auto;
+  margin-right: var(--space-6);
+}
+
+@media (max-width: 1200px) {
+  .project-sidebar {
+    display: none;
+  }
 }
 </style>

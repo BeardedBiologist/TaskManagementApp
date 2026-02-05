@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   const error = ref(null)
 
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
+  const isAuthenticated = computed(() => !!token.value)
   const userName = computed(() => {
     if (!user.value) return ''
     return `${user.value.name.first} ${user.value.name.last}`

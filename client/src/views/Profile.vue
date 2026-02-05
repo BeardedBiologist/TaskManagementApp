@@ -228,7 +228,7 @@ async function updateProfile() {
 function handleLogout() {
   authStore.logout()
   socketStore.disconnect()
-  router.push('/login')
+  router.push('/')
 }
 </script>
 

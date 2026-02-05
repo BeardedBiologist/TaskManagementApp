@@ -255,7 +255,9 @@ watch(searchQuery, () => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  loadData()
+  if (authStore.isAuthenticated) {
+    loadData()
+  }
 })
 
 onUnmounted(() => {
@@ -271,8 +273,13 @@ function handleKeydown(e) {
 }
 
 async function loadData() {
+  if (!authStore.isAuthenticated) return
   // Load workspaces
-  await workspaceStore.fetchWorkspaces()
+  try {
+    await workspaceStore.fetchWorkspaces()
+  } catch (err) {
+    return
+  }
   
   // Load projects and tasks from all workspaces
   for (const workspace of workspaceStore.workspaces) {
