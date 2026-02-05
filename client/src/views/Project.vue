@@ -1204,8 +1204,8 @@ async function handleColumnDrop(e, targetColumnId) {
 }
 
 .board-column {
-  width: 280px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 280px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
