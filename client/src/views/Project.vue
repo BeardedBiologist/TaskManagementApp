@@ -1,6 +1,6 @@
 <template>
   <Layout>
-    <div class="project-container">
+    <div class="project-container" @click="closeNewMenu">
       <div v-if="loading" class="loading">
         <div class="spinner"></div>
       </div>
@@ -41,20 +41,35 @@
                   <button v-if="projectStore.currentProject.members?.length > 3" class="member-more">
                     +{{ projectStore.currentProject.members.length - 3 }}
                   </button>
-                  <button class="btn btn-icon btn-ghost" title="Add member">
+                  <button class="btn btn-icon btn-ghost" title="Add member" @click="openAddMember">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <line x1="12" y1="5" x2="12" y2="19"/>
                       <line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                   </button>
                 </div>
-                <button class="btn btn-primary" @click="openCreateTask">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                  </svg>
-                  New Task
-                </button>
+                <div class="project-action-buttons">
+                  <button class="btn btn-primary new-item-btn" @click.stop="toggleNewMenu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="12" y1="5" x2="12" y2="19"/>
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    New
+                    <svg class="chevron" :class="{ open: showNewMenu }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  <div v-if="showNewMenu" class="new-item-menu" @click.stop>
+                    <button class="menu-item" @click="selectNewItem('task')">
+                      <span class="menu-icon">✓</span>
+                      New Task
+                    </button>
+                    <button class="menu-item" @click="selectNewItem('note')">
+                      <span class="menu-icon">📝</span>
+                      New Note
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -303,19 +318,12 @@
           
           <!-- Activity Feed Sidebar -->
           <aside class="project-sidebar" v-if="currentView !== 'whiteboard' && showActivity">
-            <div class="activity-header">
-              <span>Activity</span>
-              <button class="btn btn-icon btn-ghost" type="button" @click="showActivity = false" title="Hide activity">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
             <ActivityFeed
               :activities="collaborationStore.activities"
               :compact="true"
               :limit="15"
+              :show-close="true"
+              @close="showActivity = false"
               @load-more="loadMoreActivities"
             />
           </aside>
@@ -352,6 +360,49 @@
           @delete="deleteTask"
         />
       </Transition>
+
+      <!-- Add Member Modal -->
+      <div v-if="showAddMember" class="modal-overlay" @click.self="showAddMember = false">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h3>Add Member</h3>
+            <button class="btn btn-icon btn-ghost" @click="showAddMember = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select v-model="memberRole" class="form-select">
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="members-list">
+            <div
+              v-for="member in availableWorkspaceMembers"
+              :key="member.user._id"
+              class="member-item"
+            >
+              <div class="member-info">
+                <div class="avatar avatar-sm">{{ getInitials(member.user.name?.first, member.user.name?.last) }}</div>
+                <div class="member-details">
+                  <div class="member-name">{{ member.user.name?.first }} {{ member.user.name?.last }}</div>
+                  <div class="member-email">{{ member.user.email }}</div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" @click="addProjectMember(member.user._id)" :disabled="addingMember">
+                {{ addingMember ? 'Adding...' : 'Add' }}
+              </button>
+            </div>
+            <div v-if="availableWorkspaceMembers.length === 0" class="empty-hint">
+              No available workspace members to add.
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Create Task Modal (Simple) -->
       <div v-if="showCreateTask" class="modal-overlay" @click.self="showCreateTask = false">
@@ -410,6 +461,8 @@ import Whiteboard from '../components/Whiteboard.vue'
 import ActivityFeed from '../components/ActivityFeed.vue'
 import LiveCursors from '../components/LiveCursors.vue'
 import { useProjectStore } from '../stores/project'
+import { usePageStore } from '../stores/page'
+import { useWorkspaceStore } from '../stores/workspace'
 import { useSocketStore } from '../stores/socket'
 import { useAuthStore } from '../stores/auth'
 import { useCollaborationStore } from '../stores/collaboration'
@@ -419,6 +472,8 @@ import api from '../utils/api'
 const route = useRoute()
 const router = useRouter()
 const projectStore = useProjectStore()
+const pageStore = usePageStore()
+const workspaceStore = useWorkspaceStore()
 const socketStore = useSocketStore()
 const authStore = useAuthStore()
 const collaborationStore = useCollaborationStore()
@@ -430,10 +485,27 @@ const showCreateTask = ref(false)
 const savedActivity = localStorage.getItem('projectActivityVisible')
 const showActivity = ref(savedActivity ? JSON.parse(savedActivity) : true)
 const creating = ref(false)
+const showNewMenu = ref(false)
+const showAddMember = ref(false)
+const addingMember = ref(false)
+const memberRole = ref('member')
 const searchQuery = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
 const whiteboardElements = ref([])
+const whiteboardList = ref([])
+
+const availableWorkspaceMembers = computed(() => {
+  const workspace = workspaceStore.currentWorkspace
+  const project = projectStore.currentProject
+  if (!workspace || !project) return []
+  const projectMemberIds = new Set(project.members?.map(m => m.user?._id || m.user) || [])
+  return (workspace.members || [])
+    .filter(m => {
+      const id = m.user?._id || m.user
+      return id && !projectMemberIds.has(id)
+    })
+})
 
 // Drag and drop state
 const draggingTask = ref(null)
@@ -535,12 +607,20 @@ onMounted(async () => {
     currentView.value = route.query.view
   }
   await projectStore.fetchProject(route.params.id)
+  const workspaceId = projectStore.currentProject?.workspace?._id || projectStore.currentProject?.workspace
+  if (workspaceId) {
+    await workspaceStore.fetchWorkspace(workspaceId)
+  }
   await loadActivities()
   socketStore.joinProject(route.params.id)
-  if (currentView.value === 'whiteboard' && activeWhiteboardId.value) {
-    await loadWhiteboard(activeWhiteboardId.value)
-    joinCollabRoom('whiteboard', activeWhiteboardId.value)
-  } else {
+  if (currentView.value === 'whiteboard') {
+    const ensuredId = await ensureWhiteboardId()
+    if (ensuredId) {
+      await loadWhiteboard(ensuredId)
+      joinCollabRoom('whiteboard', ensuredId)
+    }
+  }
+  if (currentView.value !== 'whiteboard') {
     joinCollabRoom('project', route.params.id)
   }
   setupSocketListeners()
@@ -558,9 +638,13 @@ watch(() => route.query.view, (newView) => {
   if (!newView) return
   if (['list', 'board', 'timeline', 'whiteboard'].includes(newView)) {
     currentView.value = newView
-    if (newView === 'whiteboard' && activeWhiteboardId.value) {
-      loadWhiteboard(activeWhiteboardId.value)
-      joinCollabRoom('whiteboard', activeWhiteboardId.value)
+    if (newView === 'whiteboard') {
+      ensureWhiteboardId().then((id) => {
+        if (id) {
+          loadWhiteboard(id)
+          joinCollabRoom('whiteboard', id)
+        }
+      })
     } else if (newView !== 'whiteboard') {
       joinCollabRoom('project', route.params.id)
     }
@@ -578,6 +662,30 @@ function setView(viewId) {
   currentView.value = viewId
   // Update URL without reloading
   router.replace({ query: { ...route.query, view: viewId } })
+}
+
+async function ensureWhiteboardId() {
+  if (activeWhiteboardId.value) return activeWhiteboardId.value
+  try {
+    const { data } = await api.get(`/whiteboards/project/${route.params.id}`)
+    whiteboardList.value = data || []
+    let board = whiteboardList.value[0]
+    if (!board) {
+      const created = await api.post('/whiteboards', {
+        name: 'Untitled Whiteboard',
+        projectId: route.params.id
+      })
+      board = created.data
+      whiteboardList.value = [board]
+    }
+    if (board?._id) {
+      router.replace({ query: { ...route.query, view: 'whiteboard', id: board._id } })
+      return board._id
+    }
+  } catch (err) {
+    console.error('Failed to load whiteboards:', err)
+  }
+  return null
 }
 
 function joinCollabRoom(type, id) {
@@ -601,7 +709,9 @@ function toggleActivity() {
 function setupSocketListeners() {
   socketStore.on('task-created', (task) => projectStore.addTaskToState(task))
   socketStore.on('task-updated', (task) => projectStore.updateTaskInState(task))
+  socketStore.on('task-moved', ({ task }) => projectStore.updateTaskInState(task))
   socketStore.on('task-deleted', ({ taskId }) => projectStore.removeTaskFromState(taskId))
+  socketStore.on('activity', (activity) => collaborationStore.addActivity(activity))
   
   // Whiteboard real-time updates
   socketStore.on('whiteboard-element-added', ({ element }) => {
@@ -623,6 +733,9 @@ function updateWhiteboard(elements) {
 
 function addWhiteboardElement(element) {
   if (!activeWhiteboardId.value) return
+  if (!whiteboardElements.value.find(e => e.id === element.id)) {
+    whiteboardElements.value.push(element)
+  }
   socketStore.emit('whiteboard-element-add', {
     whiteboardId: activeWhiteboardId.value,
     element
@@ -631,6 +744,10 @@ function addWhiteboardElement(element) {
 
 function updateWhiteboardElement({ elementId, updates }) {
   if (!activeWhiteboardId.value) return
+  const existing = whiteboardElements.value.find(e => e.id === elementId)
+  if (existing) {
+    Object.assign(existing, updates)
+  }
   socketStore.emit('whiteboard-element-update', {
     whiteboardId: activeWhiteboardId.value,
     elementId,
@@ -677,11 +794,38 @@ async function loadMoreActivities() {
 function removeSocketListeners() {
   socketStore.off('task-created')
   socketStore.off('task-updated')
+  socketStore.off('task-moved')
   socketStore.off('task-deleted')
+  socketStore.off('activity')
 }
 
 function selectTask(task) {
   selectedTask.value = task
+}
+
+async function openAddMember() {
+  showAddMember.value = true
+  const workspaceId = projectStore.currentProject?.workspace?._id || projectStore.currentProject?.workspace
+  if (workspaceId && (!workspaceStore.currentWorkspace || workspaceStore.currentWorkspace._id !== workspaceId)) {
+    await workspaceStore.fetchWorkspace(workspaceId)
+  }
+}
+
+async function addProjectMember(userId) {
+  if (!userId) return
+  addingMember.value = true
+  try {
+    const { data } = await api.post(`/projects/${route.params.id}/members`, {
+      userId,
+      role: memberRole.value
+    })
+    projectStore.currentProject = data
+    showAddMember.value = false
+  } catch (err) {
+    console.error('Failed to add member:', err)
+  } finally {
+    addingMember.value = false
+  }
 }
 
 function openCreateTask() {
@@ -692,6 +836,36 @@ function openCreateTask() {
 function openCreateTaskForColumn(columnId) {
   newTask.value = { title: '', columnId, priority: 'medium' }
   showCreateTask.value = true
+}
+
+function closeNewMenu() {
+  showNewMenu.value = false
+}
+
+function toggleNewMenu() {
+  showNewMenu.value = !showNewMenu.value
+}
+
+function selectNewItem(type) {
+  showNewMenu.value = false
+  if (type === 'task') {
+    openCreateTask()
+    return
+  }
+  createProjectNote()
+}
+
+async function createProjectNote() {
+  try {
+    const page = await pageStore.createPage({
+      project: route.params.id,
+      title: 'Untitled',
+      icon: '📄'
+    })
+    router.push(`/projects/${route.params.id}/pages/${page._id}`)
+  } catch (err) {
+    console.error('Failed to create note:', err)
+  }
 }
 
 async function createTask() {
@@ -846,6 +1020,111 @@ async function handleColumnDrop(e, targetColumnId) {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.member-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.member-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.member-email {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.project-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  position: relative;
+}
+
+.new-item-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.new-item-btn .chevron {
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-1);
+  transition: transform 0.15s ease;
+}
+
+.new-item-btn .chevron.open {
+  transform: rotate(180deg);
+}
+
+.new-item-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 160px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-1);
+  z-index: 10;
+}
+
+.new-item-menu .menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.new-item-menu .menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.new-item-menu .menu-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .member-stack {
@@ -1536,6 +1815,289 @@ async function handleColumnDrop(e, targetColumnId) {
 @media (max-width: 1200px) {
   .project-sidebar {
     display: none;
+  }
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 1023px) {
+  .project-container {
+    height: calc(100vh - 120px);
+  }
+  
+  .project-header {
+    padding: var(--space-4) var(--space-4) 0;
+  }
+  
+  .header-main {
+    margin-bottom: var(--space-4);
+  }
+  
+  .project-title-row {
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  
+  .project-identity {
+    gap: var(--space-3);
+  }
+  
+  .project-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.25rem;
+  }
+  
+  .project-identity h1 {
+    font-size: 1.25rem;
+  }
+  
+  .project-desc {
+    font-size: 0.875rem;
+  }
+  
+  .project-actions {
+    width: 100%;
+  }
+  
+  .project-actions .btn-primary {
+    flex: 1;
+  }
+  
+  .header-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+  }
+  
+  .view-tabs {
+    overflow-x: auto;
+    padding-bottom: var(--space-1);
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tab-btn {
+    flex-shrink: 0;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.8125rem;
+  }
+  
+  .tab-btn span {
+    display: none;
+  }
+  
+  .filters {
+    flex-direction: row;
+    gap: var(--space-2);
+  }
+  
+  .search-box {
+    flex: 1;
+  }
+  
+  .search-box input {
+    width: 100%;
+  }
+  
+  .project-content {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+  
+  .project-main {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+  
+  /* List View Mobile */
+  .task-list {
+    overflow-x: auto;
+  }
+  
+  .list-header {
+    grid-template-columns: 100px 1fr 80px 80px;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    font-size: 0.625rem;
+  }
+  
+  .list-header .col-assignee,
+  .list-header .col-due {
+    display: none;
+  }
+  
+  .task-row {
+    grid-template-columns: 100px 1fr 80px 80px;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  
+  .task-row .col-assignee,
+  .task-row .col-due {
+    display: none;
+  }
+  
+  /* Board View Mobile */
+  .board-view {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .board-column {
+    min-width: 260px;
+  }
+  
+  /* Whiteboard Mobile */
+  .whiteboard-view {
+    height: calc(100vh - 180px);
+  }
+}
+
+@media (max-width: 767px) {
+  .project-container {
+    height: calc(100vh - 116px);
+  }
+  
+  .project-header {
+    padding: var(--space-3) var(--space-3) 0;
+  }
+  
+  .back-link {
+    font-size: 0.8125rem;
+  }
+  
+  .project-identity h1 {
+    font-size: 1.125rem;
+  }
+  
+  .member-stack {
+    display: none;
+  }
+  
+  .project-actions .btn-primary {
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .project-actions .btn-primary svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .filters {
+    flex-wrap: wrap;
+  }
+  
+  .filter-select {
+    font-size: 0.8125rem;
+    padding: var(--space-2);
+  }
+  
+  .progress-section {
+    margin-top: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+  
+  .progress-stats {
+    font-size: 0.75rem;
+  }
+  
+  /* Modal Mobile */
+  .modal-overlay {
+    padding: var(--space-3);
+    align-items: flex-end;
+  }
+  
+  .modal {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  
+  .modal-header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+  
+  .modal form {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  
+  .modal-footer {
+    flex-direction: column-reverse;
+    gap: var(--space-2);
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* Empty State Mobile */
+  .empty-state {
+    padding: var(--space-8) var(--space-4);
+  }
+  
+  .empty-illustration {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .empty-state h3 {
+    font-size: 1.125rem;
+  }
+  
+  .empty-state p {
+    font-size: 0.875rem;
+  }
+  
+  /* Board Card Mobile */
+  .board-card {
+    padding: var(--space-3);
+  }
+  
+  .card-title {
+    font-size: 0.875rem;
+    margin-bottom: var(--space-3);
+  }
+  
+  .card-meta {
+    gap: var(--space-2);
+    font-size: 0.6875rem;
+  }
+}
+
+/* Hide text in tabs on small screens */
+@media (max-width: 479px) {
+  .tab-btn {
+    padding: var(--space-2);
+  }
+  
+  .tab-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  /* Task row mobile adjustments */
+  .list-header {
+    grid-template-columns: 80px 1fr 70px;
+  }
+  
+  .list-header .col-priority {
+    display: none;
+  }
+  
+  .task-row {
+    grid-template-columns: 80px 1fr 70px;
+  }
+  
+  .task-row .col-priority {
+    display: none;
+  }
+  
+  .board-column {
+    min-width: 240px;
   }
 }
 </style>

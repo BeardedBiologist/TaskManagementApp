@@ -81,26 +81,58 @@
 
         <!-- Members Tab -->
         <div v-if="activeTab === 'members'" class="tab-content">
-          <div class="card">
-            <div class="card-header">
-              <h3>Workspace Members</h3>
-              <button class="btn btn-primary btn-sm" @click="showAddMember = true">
-                + Add Member
-              </button>
-            </div>
-            
-            <div class="members-list">
-              <div 
-                v-for="member in workspaceStore.currentWorkspace.members" 
-                :key="member.user._id"
-                class="member-item"
-              >
-                <div class="avatar">{{ getInitials(member.user.name.first, member.user.name.last) }}</div>
-                <div class="member-info">
-                  <span class="member-name">{{ member.user.name.first }} {{ member.user.name.last }}</span>
-                  <span class="member-email">{{ member.user.email }}</span>
+          <div class="members-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h3>Workspace Members</h3>
+                  <p class="card-subtitle">People with access to this workspace.</p>
                 </div>
-                <span class="badge" :class="member.role">{{ member.role }}</span>
+                <button class="btn btn-primary btn-sm" @click="showAddMember = true">
+                  + Add Member
+                </button>
+              </div>
+              
+              <div class="members-list">
+                <div 
+                  v-for="member in workspaceStore.currentWorkspace.members" 
+                  :key="member.user._id"
+                  class="member-item"
+                >
+                  <div class="avatar">{{ getInitials(member.user.name.first, member.user.name.last) }}</div>
+                  <div class="member-info">
+                    <span class="member-name">{{ member.user.name.first }} {{ member.user.name.last }}</span>
+                    <span class="member-email">{{ member.user.email }}</span>
+                  </div>
+                  <span class="badge" :class="member.role">{{ member.role }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h3>Pending Invites</h3>
+                  <p class="card-subtitle">Invites waiting for signup.</p>
+                </div>
+              </div>
+              <div class="pending-list">
+                <div v-if="workspaceStore.pendingInvites.length === 0" class="empty-state">
+                  No pending invites
+                </div>
+                <div
+                  v-for="invite in workspaceStore.pendingInvites"
+                  :key="invite._id"
+                  class="pending-item"
+                >
+                  <div class="pending-info">
+                    <span class="pending-email">{{ invite.email }}</span>
+                    <span class="pending-role">{{ invite.role }}</span>
+                  </div>
+                  <button class="btn btn-ghost btn-sm" @click="deleteInvite(invite._id)">
+                    Remove
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -261,6 +293,7 @@ async function loadWorkspace() {
   error.value = null
   try {
     await workspaceStore.fetchWorkspace(workspaceId)
+    await workspaceStore.fetchPendingInvites(workspaceId)
     await projectStore.fetchProjects(workspaceId)
     socketStore.joinWorkspace(workspaceId)
     
@@ -309,14 +342,20 @@ async function createProject() {
 async function addMember() {
   addingMember.value = true
   try {
-    // This would need a user search endpoint to get the user ID from email
-    // For now, just showing the structure
+    const result = await workspaceStore.addMember(route.params.id, memberEmail.value, memberRole.value)
+    if (result?.invited) {
+      // User not signed up yet, invite stored
+    }
     showAddMember.value = false
     memberEmail.value = ''
     memberRole.value = 'member'
   } finally {
     addingMember.value = false
   }
+}
+
+async function deleteInvite(inviteId) {
+  await workspaceStore.deleteInvite(route.params.id, inviteId)
 }
 
 async function updateSettings() {
@@ -489,8 +528,60 @@ async function updateSettings() {
   font-weight: 600;
 }
 
+.card-subtitle {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.members-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
 .members-list {
   padding: 0.5rem 0;
+}
+
+.empty-state {
+  padding: var(--space-4) var(--space-6);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.pending-list {
+  padding: 0.5rem 0;
+}
+
+.pending-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.pending-item:last-child {
+  border-bottom: none;
+}
+
+.pending-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.pending-email {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pending-role {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
 }
 
 .member-item {

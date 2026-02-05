@@ -305,7 +305,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useCollaborationStore } from '../stores/collaboration'
 
 const props = defineProps({
   initialElements: {
@@ -319,6 +320,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update', 'element-add', 'element-update', 'element-delete'])
+const collaborationStore = useCollaborationStore()
 
 // Tools
 const mainTools = [
@@ -364,6 +366,10 @@ const currentPath = ref([])
 const selectionBox = ref(null)
 const editingText = ref(false)
 const editingTextValue = ref('')
+const cursorRaf = ref(null)
+const lastCursorPos = ref({ x: 0, y: 0 })
+const lastEmitAt = ref(0)
+const emitThrottleMs = 60
 
 // Resize/rotate state
 const dragStart = ref({ x: 0, y: 0 })
@@ -463,6 +469,14 @@ function handleMouseDown(e) {
 }
 
 function handleMouseMove(e) {
+  lastCursorPos.value = { x: e.clientX, y: e.clientY }
+  if (!cursorRaf.value) {
+    cursorRaf.value = requestAnimationFrame(() => {
+      collaborationStore.updateCursor(lastCursorPos.value.x, lastCursorPos.value.y)
+      cursorRaf.value = null
+    })
+  }
+
   if (props.readOnly) return
   
   const pos = getMousePos(e)
@@ -485,6 +499,7 @@ function handleMouseMove(e) {
     selectedElement.value.height = Math.max(20, Math.abs(dy))
     selectedElement.value.x = dx < 0 ? pos.x : createStart.value.x
     selectedElement.value.y = dy < 0 ? pos.y : createStart.value.y
+    maybeEmitElementUpdate(selectedElement.value)
     return
   }
 
@@ -515,12 +530,14 @@ function handleMouseMove(e) {
         el.y = elementStart.value.y + dy
         break
     }
+    maybeEmitElementUpdate(el)
     return
   }
   
   if (isDragging.value && selectedElement.value) {
     selectedElement.value.x = pos.x - dragStart.value.x
     selectedElement.value.y = pos.y - dragStart.value.y
+    maybeEmitElementUpdate(selectedElement.value)
   }
 }
 
@@ -538,10 +555,12 @@ function handleMouseUp(e) {
     if (selectedElement.value.width < 10 && selectedElement.value.height < 10) {
       applyDefaultSize(selectedElement.value)
     }
+    emitElementUpdate(selectedElement.value)
     saveToHistory()
   }
   
-  if (isResizing.value || isDragging.value) {
+  if ((isResizing.value || isDragging.value) && selectedElement.value) {
+    emitElementUpdate(selectedElement.value)
     saveToHistory()
   }
   
@@ -580,6 +599,7 @@ function handleElementDoubleClick(e, element) {
 function finishTextEdit() {
   if (selectedElement.value) {
     selectedElement.value.text = editingTextValue.value
+    emitElementUpdate(selectedElement.value)
     saveToHistory()
   }
   editingText.value = false
@@ -776,6 +796,20 @@ function deleteSelected() {
   }
 }
 
+function emitElementUpdate(element) {
+  if (!element) return
+  const { id, ...updates } = element
+  emit('element-update', { elementId: id, updates: { ...updates } })
+}
+
+function maybeEmitElementUpdate(element) {
+  if (!element) return
+  const now = Date.now()
+  if (now - lastEmitAt.value < emitThrottleMs) return
+  lastEmitAt.value = now
+  emitElementUpdate(element)
+}
+
 function confirmClear() {
   if (confirm('Clear all elements? This cannot be undone.')) {
     elements.value = []
@@ -869,6 +903,14 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
+
+watch(
+  () => props.initialElements,
+  (next) => {
+    elements.value = (next || []).map(el => ({ ...el }))
+  },
+  { deep: true }
+)
 </script>
 
 <style scoped>
@@ -1315,5 +1357,133 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--text-tertiary);
   box-shadow: var(--shadow-md);
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 1023px) {
+  .whiteboard-toolbar {
+    top: var(--space-3);
+    padding: var(--space-1);
+    gap: var(--space-1);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100% - var(--space-6));
+  }
+  
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .tool-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .shape-btn {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .shape-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .color-btn {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .tool-divider {
+    height: 24px;
+  }
+  
+  .zoom-controls {
+    bottom: var(--space-3);
+    right: var(--space-3);
+    padding: var(--space-1);
+  }
+  
+  .zoom-controls button {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .zoom-level {
+    font-size: 12px;
+    min-width: 40px;
+  }
+  
+  .help-text {
+    display: none;
+  }
+  
+  /* Larger touch targets for mobile */
+  .resize-handle {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .resize-handle.nw { top: -8px; left: -8px; }
+  .resize-handle.ne { top: -8px; right: -8px; }
+  .resize-handle.sw { bottom: -8px; left: -8px; }
+  .resize-handle.se { bottom: -8px; right: -8px; }
+}
+
+@media (max-width: 767px) {
+  .whiteboard-toolbar {
+    top: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+  
+  .tool-section.shapes {
+    display: none;
+  }
+  
+  .tool-section.colors {
+    order: -1;
+  }
+  
+  .colors {
+    gap: 2px;
+  }
+  
+  .color-btn {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .stroke-width {
+    display: none;
+  }
+  
+  .zoom-controls {
+    bottom: var(--space-2);
+    right: var(--space-2);
+  }
+}
+
+@media (max-width: 479px) {
+  .whiteboard-toolbar {
+    left: var(--space-2);
+    right: var(--space-2);
+    transform: none;
+    justify-content: space-between;
+  }
+  
+  .tool-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .tool-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .zoom-controls {
+    bottom: 80px; /* Above mobile nav */
+  }
 }
 </style>

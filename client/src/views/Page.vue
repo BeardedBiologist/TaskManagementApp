@@ -1694,4 +1694,236 @@ async function duplicatePage() {
   color: var(--text-muted);
   font-size: 16px;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 1023px) {
+  .page-container {
+    padding: var(--space-4) var(--space-4);
+    max-width: 100%;
+  }
+  
+  .breadcrumbs {
+    font-size: 12px;
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+  }
+  
+  .crumb-name {
+    max-width: 80px;
+  }
+  
+  .cover-image {
+    height: 150px;
+    margin-bottom: var(--space-4);
+  }
+  
+  .page-icon-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 28px;
+  }
+  
+  .page-title {
+    font-size: 28px;
+  }
+  
+  .page-meta-actions {
+    flex-wrap: wrap;
+    gap: var(--space-1);
+  }
+  
+  .meta-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  
+  .icon-picker-modal {
+    align-items: flex-end;
+    padding: 0;
+  }
+  
+  .icon-picker-content {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 60vh;
+  }
+  
+  .icon-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+  
+  .task-item {
+    padding: var(--space-3);
+  }
+  
+  .task-title {
+    font-size: 13px;
+  }
+  
+  .comments-section {
+    padding: var(--space-3);
+  }
+  
+  .comments-list {
+    max-height: 300px;
+  }
+  
+  .comment-item {
+    padding: var(--space-2);
+  }
+  
+  .new-comment {
+    flex-direction: column;
+  }
+  
+  .new-comment input {
+    width: 100%;
+  }
+  
+  .new-comment .btn-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .page-container {
+    padding: var(--space-3);
+  }
+  
+  .breadcrumbs {
+    margin-bottom: var(--space-3);
+  }
+  
+  .crumb-link,
+  .crumb-current {
+    padding: var(--space-1);
+  }
+  
+  .crumb-name {
+    max-width: 60px;
+  }
+  
+  .cover-image {
+    height: 120px;
+    border-radius: var(--radius-lg);
+  }
+  
+  .cover-change {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  
+  .page-icon-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 22px;
+  }
+  
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .page-meta-actions {
+    margin-bottom: var(--space-3);
+  }
+  
+  .template-panel {
+    max-width: 100%;
+  }
+  
+  .template-item {
+    padding: var(--space-2);
+  }
+  
+  .page-section {
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+  }
+  
+  .section-header h3 {
+    font-size: 14px;
+  }
+  
+  .backlink-item {
+    padding: var(--space-2);
+  }
+  
+  .backlink-title {
+    font-size: 13px;
+  }
+  
+  .task-item {
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .task-priority {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+  
+  .event-item {
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .event-date {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .event-day {
+    font-size: 16px;
+  }
+  
+  .event-title {
+    font-size: 13px;
+  }
+  
+  .comments-section {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+  }
+  
+  .comment-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  
+  .comment-header strong {
+    font-size: 12px;
+  }
+  
+  .comment-text {
+    font-size: 13px;
+  }
+  
+  .reply-input {
+    flex-direction: column;
+  }
+  
+  .reply-input button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 479px) {
+  .icon-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  
+  .icon-option {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .page-title {
+    font-size: 22px;
+  }
+  
+  .task-priority {
+    display: none;
+  }
+}
 </style>

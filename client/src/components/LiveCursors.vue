@@ -48,7 +48,6 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
 import { useCollaborationStore } from '../stores/collaboration'
 
 const props = defineProps({
@@ -64,9 +63,9 @@ const props = defineProps({
 
 const collaborationStore = useCollaborationStore()
 
-const roomUsers = computed(() => collaborationStore.roomUsers)
-const userCursors = computed(() => collaborationStore.userCursors)
-const userActivity = computed(() => collaborationStore.userActivity)
+const roomUsers = collaborationStore.roomUsers
+const userCursors = collaborationStore.userCursors
+const userActivity = collaborationStore.userActivity
 
 // Color palette for users
 const userColors = [
@@ -89,7 +88,7 @@ function getUserColor(userId) {
 }
 
 function getCursorStyle(userId) {
-  const cursor = userCursors.value.get(userId)
+  const cursor = userCursors.get(userId)
   if (!cursor) return { display: 'none' }
   
   return {
@@ -98,7 +97,7 @@ function getCursorStyle(userId) {
 }
 
 function getUserActivity(userId) {
-  const activity = userActivity.value.get(userId)
+  const activity = userActivity.get(userId)
   if (!activity) return null
   
   // Only show activity if it's recent (within last 5 seconds)

@@ -11,7 +11,7 @@
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          New Workspace
+          <span class="btn-text">New Workspace</span>
         </button>
       </header>
 
@@ -149,47 +149,53 @@
       </div>
 
       <!-- Create Workspace Modal -->
-      <div v-if="showCreateWorkspace" class="modal-overlay" @click.self="showCreateWorkspace = false">
-        <div class="modal">
-          <div class="modal-header">
-            <h3>Create Workspace</h3>
-            <button class="btn btn-icon btn-ghost" @click="showCreateWorkspace = false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
+      <Teleport to="body">
+        <Transition name="fade">
+          <div v-if="showCreateWorkspace" class="modal-overlay" @click.self="showCreateWorkspace = false">
+            <Transition name="scale">
+              <div class="modal">
+                <div class="modal-header">
+                  <h3>Create Workspace</h3>
+                  <button class="btn btn-icon btn-ghost" @click="showCreateWorkspace = false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <form @submit.prevent="createWorkspace">
+                  <div class="form-group">
+                    <label class="form-label">Workspace Name</label>
+                    <input 
+                      v-model="newWorkspace.name" 
+                      type="text" 
+                      class="form-input"
+                      placeholder="e.g., Engineering Team"
+                      required
+                      autofocus
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Description <span class="optional">(optional)</span></label>
+                    <textarea 
+                      v-model="newWorkspace.description" 
+                      class="form-textarea"
+                      rows="3"
+                      placeholder="What is this workspace for?"
+                    ></textarea>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" @click="showCreateWorkspace = false">Cancel</button>
+                    <button type="submit" class="btn btn-primary" :disabled="creating">
+                      {{ creating ? 'Creating...' : 'Create Workspace' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </Transition>
           </div>
-          <form @submit.prevent="createWorkspace">
-            <div class="form-group">
-              <label class="form-label">Workspace Name</label>
-              <input 
-                v-model="newWorkspace.name" 
-                type="text" 
-                class="form-input"
-                placeholder="e.g., Engineering Team"
-                required
-                autofocus
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description <span class="optional">(optional)</span></label>
-              <textarea 
-                v-model="newWorkspace.description" 
-                class="form-textarea"
-                rows="3"
-                placeholder="What is this workspace for?"
-              ></textarea>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-ghost" @click="showCreateWorkspace = false">Cancel</button>
-              <button type="submit" class="btn btn-primary" :disabled="creating">
-                {{ creating ? 'Creating...' : 'Create Workspace' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+        </Transition>
+      </Teleport>
     </div>
   </Layout>
 </template>
@@ -260,6 +266,7 @@ function generateColor(str) {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: var(--space-8);
+  gap: var(--space-4);
 }
 
 .header-content h1 {
@@ -278,24 +285,16 @@ function generateColor(str) {
   height: 16px;
 }
 
+.page-header .btn {
+  flex-shrink: 0;
+}
+
 /* Stats Grid */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-5);
   margin-bottom: var(--space-10);
-}
-
-@media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .stat-card {
@@ -328,11 +327,16 @@ function generateColor(str) {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .stat-icon svg {
   width: 22px;
   height: 22px;
+}
+
+.stat-info {
+  min-width: 0;
 }
 
 .stat-value {
@@ -357,6 +361,7 @@ function generateColor(str) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--space-5);
+  gap: var(--space-4);
 }
 
 .section-header h2 {
@@ -372,6 +377,7 @@ function generateColor(str) {
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .view-all:hover {
@@ -450,6 +456,11 @@ function generateColor(str) {
   font-size: 1.25rem;
   font-weight: 700;
   color: white;
+  flex-shrink: 0;
+}
+
+.workspace-meta {
+  min-width: 0;
 }
 
 .workspace-meta h3 {
@@ -457,6 +468,9 @@ function generateColor(str) {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--space-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .workspace-meta p {
@@ -509,6 +523,7 @@ function generateColor(str) {
   height: 18px;
   color: var(--text-tertiary);
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .workspace-card:hover .arrow {
@@ -525,7 +540,8 @@ function generateColor(str) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
+  padding: var(--space-4);
 }
 
 .modal {
@@ -565,5 +581,173 @@ function generateColor(str) {
   margin-top: var(--space-6);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
+}
+
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.scale-enter-active,
+.scale-leave-active {
+  transition: all 0.2s ease;
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1200px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
+  .dashboard {
+    padding: var(--space-5) var(--space-5);
+  }
+  
+  .header-content h1 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .dashboard {
+    padding: var(--space-4) var(--space-4);
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: var(--space-6);
+  }
+  
+  .header-content h1 {
+    font-size: 1.25rem;
+  }
+  
+  .subtitle {
+    font-size: 0.875rem;
+  }
+  
+  .page-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+  }
+  
+  .stat-card {
+    padding: var(--space-3);
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-2);
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .stat-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+  
+  .workspaces-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .section-header {
+    margin-bottom: var(--space-4);
+  }
+  
+  .section-header h2 {
+    font-size: 1rem;
+  }
+  
+  .view-all {
+    font-size: 0.8125rem;
+  }
+  
+  .empty-card {
+    padding: var(--space-8) var(--space-4);
+  }
+  
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .modal {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .modal-header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+  
+  .modal form {
+    padding: 0 var(--space-4) var(--space-4);
+  }
+  
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 479px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-card {
+    flex-direction: row;
+    text-align: left;
+  }
+  
+  .btn-text {
+    display: inline;
+  }
+}
+
+/* For very small screens, hide button text */
+@media (max-width: 359px) {
+  .btn-text {
+    display: none;
+  }
+  
+  .page-header .btn svg {
+    margin: 0;
+  }
 }
 </style>

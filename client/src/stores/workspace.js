@@ -5,6 +5,7 @@ import api from '../utils/api'
 export const useWorkspaceStore = defineStore('workspace', () => {
   const workspaces = ref([])
   const currentWorkspace = ref(null)
+  const pendingInvites = ref([])
   const loading = ref(false)
   const error = ref(null)
 
@@ -30,7 +31,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     
     try {
       const { data } = await api.get(`/workspaces/${id}`)
-      currentWorkspace.value = data
+      currentWorkspace.value = data.workspace || data
+      pendingInvites.value = data.invites || []
       return data
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch workspace'
@@ -86,18 +88,49 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
-  async function addMember(workspaceId, userId, role = 'member') {
+  async function addMember(workspaceId, userIdOrEmail, role = 'member') {
     try {
       const { data } = await api.post(`/workspaces/${workspaceId}/members`, {
-        userId,
-        role
+        role,
+        ...(userIdOrEmail?.includes?.('@')
+          ? { email: userIdOrEmail }
+          : { userId: userIdOrEmail })
       })
+      if (data?.invited) {
+        await fetchPendingInvites(workspaceId)
+        return data
+      }
       if (currentWorkspace.value?._id === workspaceId) {
         currentWorkspace.value = data
       }
       return data
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to add member'
+      throw err
+    }
+  }
+
+  async function fetchPendingInvites(workspaceId) {
+    try {
+      const { data } = await api.get(`/workspaces/${workspaceId}/invites`)
+      pendingInvites.value = data
+      return data
+    } catch (err) {
+      if (err.response?.status === 403) {
+        pendingInvites.value = []
+        return []
+      }
+      error.value = err.response?.data?.message || 'Failed to fetch invites'
+      throw err
+    }
+  }
+
+  async function deleteInvite(workspaceId, inviteId) {
+    try {
+      await api.delete(`/workspaces/${workspaceId}/invites/${inviteId}`)
+      pendingInvites.value = pendingInvites.value.filter(invite => invite._id !== inviteId)
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to delete invite'
       throw err
     }
   }
@@ -113,6 +146,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   return {
     workspaces,
     currentWorkspace,
+    pendingInvites,
     loading,
     error,
     fetchWorkspaces,
@@ -121,6 +155,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     updateWorkspace,
     deleteWorkspace,
     addMember,
+    fetchPendingInvites,
+    deleteInvite,
     setCurrentWorkspace,
     clearCurrentWorkspace
   }

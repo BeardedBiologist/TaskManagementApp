@@ -74,12 +74,23 @@ router.post('/', authenticate, [
       { id: 'done', title: 'Done', order: 3, color: '#d1fae5' }
     ];
 
+    const workspaceMembers = workspace.members || [];
+    if (!workspaceMembers.some(m => m.user.toString() === req.user._id.toString())) {
+      workspaceMembers.push({ user: req.user._id, role: 'admin' });
+    }
+    const members = workspaceMembers.length
+      ? workspaceMembers.map(member => ({
+          user: member.user,
+          role: member.role === 'admin' ? 'admin' : 'member'
+        }))
+      : [{ user: req.user._id, role: 'admin' }];
+
     const project = await Project.create({
       name,
       description,
       workspace: workspaceId,
       createdBy: req.user._id,
-      members: [{ user: req.user._id, role: 'admin' }],
+      members,
       columns: columns || defaultColumns
     });
 
@@ -149,6 +160,93 @@ router.put('/:id', authenticate, async (req, res, next) => {
     req.io.to(`project:${project._id}`).emit('project-updated', project);
 
     res.json(project);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add member to project (must be workspace member)
+router.post('/:id/members', authenticate, async (req, res, next) => {
+  try {
+    const { userId, role = 'member' } = req.body;
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+    const isAdmin = member?.role === 'admin' || project.createdBy.toString() === req.user._id.toString();
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const workspace = await Workspace.findById(project.workspace);
+    if (!workspace) {
+      return res.status(404).json({ message: 'Workspace not found' });
+    }
+
+    const isWorkspaceMember = workspace.members.some(m => m.user.toString() === userId) || workspace.owner.toString() === userId;
+    if (!isWorkspaceMember) {
+      return res.status(400).json({ message: 'User must be a workspace member first' });
+    }
+
+    const alreadyMember = project.members.some(m => m.user.toString() === userId);
+    if (alreadyMember) {
+      return res.status(409).json({ message: 'User already a project member' });
+    }
+
+    project.members.push({ user: userId, role });
+    await project.save();
+    await project.populate('workspace createdBy members.user');
+
+    req.io.to(`project:${project._id}`).emit('project-updated', project);
+
+    res.json(project);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Sync project members with workspace members
+router.post('/:id/sync-members', authenticate, async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const member = project.members.find(m => m.user.toString() === req.user._id.toString());
+    const isAdmin = member?.role === 'admin' || project.createdBy.toString() === req.user._id.toString();
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const workspace = await Workspace.findById(project.workspace);
+    if (!workspace) {
+      return res.status(404).json({ message: 'Workspace not found' });
+    }
+
+    const existingMemberIds = new Set(project.members.map(m => m.user.toString()));
+    const additions = [];
+
+    for (const wsMember of workspace.members || []) {
+      const userId = wsMember.user.toString();
+      if (!existingMemberIds.has(userId)) {
+        additions.push({ user: wsMember.user, role: wsMember.role === 'admin' ? 'admin' : 'member' });
+      }
+    }
+
+    if (additions.length > 0) {
+      project.members.push(...additions);
+      await project.save();
+    }
+
+    await project.populate('workspace createdBy members.user');
+    req.io.to(`project:${project._id}`).emit('project-updated', project);
+
+    res.json({ project, added: additions.length });
   } catch (error) {
     next(error);
   }

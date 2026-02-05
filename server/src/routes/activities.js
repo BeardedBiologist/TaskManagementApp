@@ -1,6 +1,7 @@
 import express from 'express';
 import Activity from '../models/Activity.js';
 import Project from '../models/Project.js';
+import User from '../models/User.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -72,6 +73,31 @@ router.get('/me', authenticate, async (req, res, next) => {
       .sort({ timestamp: -1 })
       .limit(parseInt(limit));
     
+    res.json(activities);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get activity feed across all user workspaces/projects
+router.get('/all', authenticate, async (req, res, next) => {
+  try {
+    const { limit = 50, before } = req.query;
+
+    const user = await User.findById(req.user._id);
+    const workspaceIds = (user?.workspaces || []).map(w => w.workspace);
+
+    const query = { workspace: { $in: workspaceIds } };
+    if (before) {
+      query.timestamp = { $lt: new Date(before) };
+    }
+
+    const activities = await Activity.find(query)
+      .populate('user', 'name email avatar')
+      .populate('project', 'name')
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit));
+
     res.json(activities);
   } catch (error) {
     next(error);

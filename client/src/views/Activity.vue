@@ -19,7 +19,7 @@
           :activities="activities"
           :loading="loading"
           :has-more="hasMore"
-          :expanded="true"
+          :show-header="false"
           @load-more="loadMore"
         />
       </div>
@@ -39,7 +39,7 @@ import api from '../utils/api'
 const activities = ref([])
 const loading = ref(false)
 const hasMore = ref(true)
-const page = ref(1)
+const lastTimestamp = ref(null)
 const showActivity = ref(true)
 
 onMounted(async () => {
@@ -49,9 +49,10 @@ onMounted(async () => {
 async function loadActivities() {
   loading.value = true
   try {
-    const { data } = await api.get(`/activities/me?limit=50&page=${page.value}`)
+    const { data } = await api.get('/activities/all?limit=50')
     activities.value = data
     hasMore.value = data.length === 50
+    lastTimestamp.value = data[data.length - 1]?.timestamp || null
   } catch (err) {
     console.error('Failed to load activities:', err)
   } finally {
@@ -60,12 +61,15 @@ async function loadActivities() {
 }
 
 async function loadMore() {
-  page.value++
+  if (!lastTimestamp.value) return
   loading.value = true
   try {
-    const { data } = await api.get(`/activities/me?limit=50&page=${page.value}`)
+    const { data } = await api.get(`/activities/all?limit=50&before=${encodeURIComponent(lastTimestamp.value)}`)
     activities.value.push(...data)
     hasMore.value = data.length === 50
+    if (data.length > 0) {
+      lastTimestamp.value = data[data.length - 1]?.timestamp || lastTimestamp.value
+    }
   } catch (err) {
     console.error('Failed to load more activities:', err)
   } finally {
@@ -76,7 +80,7 @@ async function loadMore() {
 
 <style scoped>
 .activity-view {
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
 }
@@ -106,6 +110,7 @@ async function loadMore() {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
+  min-height: calc(100vh - 200px);
 }
 
 .activity-empty {
