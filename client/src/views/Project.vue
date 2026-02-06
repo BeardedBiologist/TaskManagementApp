@@ -9,12 +9,12 @@
         <!-- Project Header -->
         <header class="project-header">
           <div class="header-main">
-            <router-link :to="`/workspaces/${workspaceId}`" class="back-link">
+            <router-link :to="backLink.to" class="back-link">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="19" y1="12" x2="5" y2="12"/>
                 <polyline points="12 19 5 12 12 5"/>
               </svg>
-              {{ projectStore.currentProject.workspace?.name || 'Back' }}
+              {{ backLink.label }}
             </router-link>
             
             <div class="project-title-row">
@@ -585,6 +585,18 @@ const progressPercent = computed(() => {
 
 const activeWhiteboardId = computed(() => {
   return route.query.id || null
+})
+
+const backLink = computed(() => {
+  const from = route.query.from
+  if (from === 'tasks') {
+    return { to: '/tasks', label: 'Back to Tasks' }
+  }
+  if (from === 'notes') {
+    return { to: '/notes', label: 'Back to Notes' }
+  }
+  const wsName = projectStore.currentProject?.workspace?.name || 'Back'
+  return { to: `/workspaces/${workspaceId.value}`, label: wsName }
 })
 
 function getTasksByColumn(columnId) {

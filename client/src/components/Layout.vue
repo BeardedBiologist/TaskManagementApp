@@ -960,7 +960,8 @@ function generateColor(str) {
   height: 32px;
 }
 
-.mobile-brand .brand-icon svg {
+.mobile-brand .brand-icon svg,
+.mobile-brand .brand-icon img {
   width: 18px;
   height: 18px;
 }
@@ -1018,9 +1019,14 @@ function generateColor(str) {
   flex-shrink: 0;
 }
 
-.brand-icon svg {
+.brand-icon svg,
+.brand-icon img {
   width: 20px;
   height: 20px;
+}
+
+.brand-logo {
+  display: block;
 }
 
 .brand-text {
