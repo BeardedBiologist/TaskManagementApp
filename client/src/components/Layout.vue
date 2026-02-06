@@ -77,6 +77,16 @@
           <span v-if="!sidebarCollapsed">Activity</span>
         </router-link>
         
+        <router-link to="/chat" class="nav-item" :class="{ active: $route.path === '/chat', collapsed: sidebarCollapsed }" :title="sidebarCollapsed ? 'Messages' : ''">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <span v-if="!sidebarCollapsed">Messages</span>
+          <span v-if="!sidebarCollapsed && chatUnreadCount > 0" class="nav-badge">
+            {{ chatUnreadCount > 9 ? '9+' : chatUnreadCount }}
+          </span>
+        </router-link>
+        
       </nav>
 
       <div class="sidebar-section workspace-section" v-if="!sidebarCollapsed && workspaceStore.workspaces.length">
@@ -516,6 +526,29 @@
 
     <!-- Mobile Bottom Navigation -->
     <MobileNav v-if="!minimal" />
+    
+    <!-- Toast Notification -->
+    <Transition name="toast">
+      <div v-if="showToast" class="toast-notification" @click="router.push('/chat')">
+        <div class="toast-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div class="toast-content">
+          <span class="toast-text">{{ toastMessage }}</span>
+        </div>
+        <button class="toast-close" @click.stop="showToast = false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </Transition>
+    
+    <!-- Chat Widget -->
+    <ChatWidget v-if="!minimal && authStore.isAuthenticated" />
   </div>
 </template>
 
@@ -530,6 +563,8 @@ import { useSocketStore } from '../stores/socket'
 import api from '../utils/api'
 import Notifications from './Notifications.vue'
 import MobileNav from './MobileNav.vue'
+import ChatWidget from './ChatWidget.vue'
+import { useChatStore } from '../stores/chat'
 
 const route = useRoute()
 const router = useRouter()
@@ -537,7 +572,30 @@ const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
 const projectStore = useProjectStore()
 const pageStore = usePageStore()
+const chatStore = useChatStore()
+
+const chatUnreadCount = computed(() => chatStore.totalUnreadCount)
 const socketStore = useSocketStore()
+const showToast = ref(false)
+const toastMessage = ref('')
+let toastTimeout = null
+
+// Watch for new messages and show toast
+watch(chatUnreadCount, (newCount, oldCount) => {
+  if (newCount > oldCount && route.path !== '/chat') {
+    // Show toast notification
+    toastMessage.value = `New message received`
+    showToast.value = true
+    
+    // Clear previous timeout
+    if (toastTimeout) clearTimeout(toastTimeout)
+    
+    // Hide after 3 seconds
+    toastTimeout = setTimeout(() => {
+      showToast.value = false
+    }, 3000)
+  }
+})
 
 const props = defineProps({
   minimal: {
@@ -1017,6 +1075,31 @@ function generateColor(str) {
 .nav-item.active svg {
   opacity: 1;
   color: var(--primary-400);
+}
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--primary-500);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-item.collapsed .nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  font-size: 9px;
+  padding: 0 3px;
 }
 
 .sidebar-section {
@@ -1781,6 +1864,97 @@ function generateColor(str) {
   .main {
     padding-top: 52px;
   }
+}
+
+/* Toast Notification */
+.toast-notification {
+  position: fixed;
+  bottom: 100px;
+  right: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 1001;
+  cursor: pointer;
+  animation: slideInToast 0.3s ease;
+}
+
+.toast-notification:hover {
+  background: var(--bg-secondary);
+}
+
+@keyframes slideInToast {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-500);
+  border-radius: 50%;
+  color: white;
+}
+
+.toast-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-text {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.toast-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
+}
+
+.toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
 }
 
 /* Hide mobile nav on desktop */

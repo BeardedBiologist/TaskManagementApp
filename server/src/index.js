@@ -23,6 +23,7 @@ import whiteboardRoutes from './routes/whiteboards.js';
 import activityRoutes from './routes/activities.js';
 import commentRoutes from './routes/comments.js';
 import templateRoutes from './routes/templates.js';
+import conversationRoutes from './routes/conversations.js';
 
 dotenv.config();
 
@@ -63,6 +64,10 @@ app.use('/api/whiteboards', whiteboardRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/conversations', conversationRoutes);
+
+// Make io accessible to routes
+app.set('io', io);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -383,6 +388,50 @@ io.on('connection', (socket) => {
 
   socket.on('task-update', (data) => {
     socket.to(`project:${data.projectId}`).emit('task-updated', data);
+  });
+
+  // ===== MESSAGING =====
+  
+  // Join user-specific room for direct messages
+  socket.on('join-user-room', () => {
+    socket.join(`user:${socket.userId}`);
+    console.log(`User ${socket.userId} joined their personal room`);
+  });
+  
+  // Leave user-specific room
+  socket.on('leave-user-room', () => {
+    socket.leave(`user:${socket.userId}`);
+    console.log(`User ${socket.userId} left their personal room`);
+  });
+  
+  // Message sent acknowledgment
+  socket.on('message-sent', (data) => {
+    // Broadcast to recipient's user room
+    const { conversationId, message } = data;
+    socket.to(`user:${message.recipient}`).emit('new-message', {
+      conversationId,
+      message
+    });
+  });
+  
+  // Typing indicator
+  socket.on('typing', (data) => {
+    const { conversationId, recipientId } = data;
+    socket.to(`user:${recipientId}`).emit('user-typing', {
+      conversationId,
+      userId: socket.userId,
+      timestamp: new Date()
+    });
+  });
+  
+  // Stop typing
+  socket.on('stop-typing', (data) => {
+    const { conversationId, recipientId } = data;
+    socket.to(`user:${recipientId}`).emit('user-stop-typing', {
+      conversationId,
+      userId: socket.userId,
+      timestamp: new Date()
+    });
   });
 
   // ===== COMMENTS =====

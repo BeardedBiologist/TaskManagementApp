@@ -4,15 +4,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useSocketStore } from './stores/socket'
 import { useThemeStore } from './stores/theme'
+import { useChatStore } from './stores/chat'
 import CommandPalette from './components/CommandPalette.vue'
 
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
 const themeStore = useThemeStore()
+const chatStore = useChatStore()
 const commandPaletteRef = ref(null)
 
 onMounted(() => {
@@ -22,6 +24,8 @@ onMounted(() => {
   authStore.initializeAuth()
   if (authStore.isAuthenticated) {
     socketStore.connect()
+    // Set up chat listeners for real-time notifications
+    setupChatListeners()
   }
   
   // Expose toggle function globally for keyboard shortcut
@@ -29,6 +33,30 @@ onMounted(() => {
     commandPaletteRef.value?.toggle()
   }
 })
+
+// Watch for auth state changes
+watch(() => authStore.isAuthenticated, (isAuth) => {
+  if (isAuth) {
+    socketStore.connect()
+    setupChatListeners()
+  } else {
+    chatStore.removeSocketListeners()
+  }
+})
+
+function setupChatListeners() {
+  chatStore.setupSocketListeners()
+  chatStore.fetchConversations()
+  
+  // Set up a reconnect handler
+  if (socketStore.socket) {
+    socketStore.off('connect') // Helper to prevent duplicates just in case
+    socketStore.on('connect', () => {
+      console.log('Socket reconnected, rejoining chat rooms')
+      chatStore.setupSocketListeners()
+    })
+  }
+}
 </script>
 
 <style>
