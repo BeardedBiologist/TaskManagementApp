@@ -346,7 +346,7 @@
         <div 
           v-if="selectedTask" 
           class="panel-overlay"
-          @click="selectedTask = null"
+          @click="closeTaskPanel"
         ></div>
       </Transition>
 
@@ -355,7 +355,7 @@
           v-if="selectedTask"
           :task="selectedTask"
           :columns="columns"
-          @close="selectedTask = null"
+          @close="closeTaskPanel"
           @update="updateTask"
           @delete="deleteTask"
         />
@@ -624,6 +624,24 @@ onMounted(async () => {
     joinCollabRoom('project', route.params.id)
   }
   setupSocketListeners()
+  if (route.query.task) {
+    const checkTask = () => {
+      const task = projectStore.tasks.find(t => t._id === route.query.task)
+      if (task) {
+        selectedTask.value = task
+        return true
+      }
+      return false
+    }
+
+    if (!checkTask()) {
+      const unwatch = watch(() => projectStore.tasks, () => {
+        if (checkTask()) {
+          unwatch()
+        }
+      })
+    }
+  }
   loading.value = false
 })
 
@@ -655,6 +673,15 @@ watch(() => route.query.id, (newId) => {
   if (currentView.value === 'whiteboard' && newId) {
     loadWhiteboard(newId)
     joinCollabRoom('whiteboard', newId)
+  }
+})
+
+watch(() => route.query.task, (newTaskId) => {
+  if (newTaskId) {
+    const task = projectStore.tasks.find(t => t._id === newTaskId)
+    if (task) selectedTask.value = task
+  } else {
+    selectedTask.value = null
   }
 })
 
@@ -799,8 +826,16 @@ function removeSocketListeners() {
   socketStore.off('activity')
 }
 
+function closeTaskPanel() {
+  selectedTask.value = null
+  const query = { ...route.query }
+  delete query.task
+  router.replace({ query })
+}
+
 function selectTask(task) {
   selectedTask.value = task
+  router.replace({ query: { ...route.query, task: task._id } })
 }
 
 async function openAddMember() {

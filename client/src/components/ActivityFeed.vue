@@ -38,7 +38,15 @@
             <p class="activity-text">
               <strong>{{ getUserDisplayName(activity.user) }}</strong>
               {{ getActivityDescription(activity) }}
-              <span v-if="activity.targetName" class="activity-target">
+              <a 
+                v-if="activity.targetName && isClickable(activity)" 
+                href="#" 
+                class="activity-target clickable"
+                @click.prevent="handleActivityClick(activity)"
+              >
+                {{ activity.targetName }}
+              </a>
+              <span v-else-if="activity.targetName" class="activity-target">
                 {{ activity.targetName }}
               </span>
               <span v-if="activity.count && activity.count > 1" class="activity-count">
@@ -72,6 +80,9 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps({
   activities: {
@@ -250,6 +261,43 @@ function normalizeActivities(items) {
   }
 
   return consolidated
+}
+
+function isClickable(activity) {
+  const type = activity.type
+  if (type.startsWith('task.')) return true
+  if (type.startsWith('page.')) return true
+  if (type.startsWith('whiteboard.')) return true
+  if (type.startsWith('project.')) return true
+  return false
+}
+
+function handleActivityClick(activity) {
+  const type = activity.type
+  const projectId = activity.project?._id || activity.project
+  
+  if (!projectId) return
+
+  if (type.startsWith('task.')) {
+    const taskId = activity.targetId
+    router.push({
+      path: `/projects/${projectId}`,
+      query: { task: taskId, view: 'list' } // defaulting to list view, but preserving view might be better if already there, though safer to enforce a view that supports tasks
+    })
+  } else if (type.startsWith('page.')) {
+    const pageId = activity.targetId
+    router.push(`/projects/${projectId}/pages/${pageId}`)
+  } else if (type.startsWith('whiteboard.')) {
+    const whiteboardId = activity.targetId
+    // If it's element related, the targetId might be the whiteboard itself based on backend logic
+    // Actually backend logs targetId as whiteboard ID for element events too.
+    router.push({
+      path: `/projects/${projectId}`,
+      query: { view: 'whiteboard', id: whiteboardId }
+    })
+  } else if (type.startsWith('project.')) {
+    router.push(`/projects/${projectId}`)
+  }
 }
 
 function getActivityIcon(type) {
@@ -441,6 +489,15 @@ function formatTime(timestamp) {
 .activity-target {
   color: var(--primary-400);
   font-weight: 500;
+}
+
+.activity-target.clickable {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.activity-target.clickable:hover {
+  text-decoration: underline;
 }
 
 .activity-time {
