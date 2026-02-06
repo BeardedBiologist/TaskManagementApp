@@ -261,18 +261,30 @@ router.post('/', authenticate, [
   }
 });
 
-// Get all tasks for current user
+// Get all tasks for current user across all projects
 router.get('/', authenticate, async (req, res, next) => {
   try {
+    // Find all projects the user is a member of
+    const projects = await Project.find({
+      $or: [
+        { 'members.user': req.user._id },
+        { createdBy: req.user._id }
+      ]
+    }).select('_id');
+
+    const projectIds = projects.map(p => p._id.toString());
+
+    // Get all tasks from those projects, or tasks where user is creator/assignee
     const tasks = await Task.find({
       $or: [
+        { project: { $in: projectIds } },
         { createdBy: req.user._id },
         { assignees: req.user._id }
       ]
     })
     .populate('assignees', 'name email avatar')
     .populate('createdBy', 'name email avatar')
-    .populate('project', 'name')
+    .populate('project', 'name workspace')
     .populate('page', 'title icon')
     .sort({ createdAt: -1 });
 
