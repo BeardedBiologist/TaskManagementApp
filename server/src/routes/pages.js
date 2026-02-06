@@ -7,6 +7,33 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Get all pages for current user across all projects
+router.get('/', authenticate, async (req, res) => {
+  try {
+    // First, find all projects the user is a member of
+    const projects = await Project.find({
+      $or: [
+        { 'members.user': req.user._id },
+        { createdBy: req.user._id }
+      ]
+    }).select('_id');
+
+    const projectIds = projects.map(p => p._id);
+
+    // Get all pages from those projects
+    const pages = await Page.find({
+      project: { $in: projectIds }
+    })
+      .sort({ updatedAt: -1 })
+      .populate('project', 'name workspace')
+      .populate('owner', 'name email');
+
+    res.json(pages);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Get all pages for a project (including subpages)
 router.get('/project/:projectId/all', authenticate, async (req, res) => {
   try {
