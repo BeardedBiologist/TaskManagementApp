@@ -406,6 +406,16 @@
               </svg>
               <span>Activity</span>
             </router-link>
+            
+            <router-link to="/chat" class="nav-item" :class="{ active: $route.path === '/chat' }" @click="showMobileSidebar = false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>Messages</span>
+              <span v-if="chatUnreadCount > 0" class="nav-badge mobile">
+                {{ chatUnreadCount > 9 ? '9+' : chatUnreadCount }}
+              </span>
+            </router-link>
           </nav>
 
           <div class="mobile-sidebar-section" v-if="workspaceStore.workspaces.length">

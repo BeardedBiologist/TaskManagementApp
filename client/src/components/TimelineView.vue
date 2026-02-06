@@ -191,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { getInitials, normalizeDateKey, addDaysToDateKey, formatDateKey, getTodayKey } from '../utils/helpers'
 
@@ -215,20 +215,30 @@ const viewModes = [
   { id: 'quarter', label: 'Quarter' }
 ]
 
-// Zoom levels (pixels per day)
-const zoomLevels = [30, 50, 80, 120]
+// Zoom levels (pixels per day) - adjusted for mobile
+const getZoomLevels = () => {
+  if (typeof window === 'undefined') return [30, 50, 80, 120]
+  const width = window.innerWidth
+  // Smaller zoom levels for mobile to show more dates
+  if (width < 768) return [20, 30, 50, 80]
+  if (width < 1024) return [25, 40, 60, 100]
+  return [30, 50, 80, 120]
+}
+
+const zoomLevels = computed(() => getZoomLevels())
 const zoomIndex = ref(2)
-const columnWidth = computed(() => zoomLevels[zoomIndex.value])
+const columnWidth = computed(() => zoomLevels.value[zoomIndex.value])
 const zoomLabel = computed(() => `${columnWidth.value}px/d`)
 
-// Auto-adjust zoom based on view
+// Auto-adjust zoom based on view and screen size
 watch(currentView, (newView) => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   switch (newView) {
     case 'week':
-      zoomIndex.value = 2
+      zoomIndex.value = isMobile ? 1 : 2
       break
     case 'month':
-      zoomIndex.value = 1
+      zoomIndex.value = isMobile ? 0 : 1
       break
     case 'quarter':
       zoomIndex.value = 0
@@ -237,8 +247,15 @@ watch(currentView, (newView) => {
   nextTick(() => scrollToToday())
 })
 
-// Dimensions
-const rowHeight = 48
+// Dimensions - responsive row height
+const rowHeight = computed(() => {
+  if (typeof window === 'undefined') return 48
+  const width = window.innerWidth
+  if (width < 480) return 32
+  if (width < 768) return 36
+  if (width < 1024) return 40
+  return 48
+})
 
 // Drag state
 const draggedTask = ref(null)
@@ -530,6 +547,12 @@ function startResize(e, task, side) {
 
 function handleScroll() {}
 
+// Handle window resize for responsive adjustments
+function handleResize() {
+  // Force recompute of computed properties
+  nextTick(() => scrollToToday())
+}
+
 function scrollToToday() {
   const todayCol = dateColumns.value.find(col => col.key === todayKey.value)
   if (todayCol && gridRef.value) {
@@ -539,7 +562,14 @@ function scrollToToday() {
   }
 }
 
-onMounted(() => scrollToToday())
+onMounted(() => {
+  scrollToToday()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style scoped>
@@ -1031,5 +1061,177 @@ onMounted(() => scrollToToday())
 .legend-hint svg {
   width: 16px;
   height: 16px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 1023px) {
+  .timeline-sidebar {
+    width: 140px;
+  }
+  
+  .sidebar-header {
+    height: 48px;
+    padding: 0 var(--space-2);
+    font-size: 0.625rem;
+  }
+  
+  .sidebar-item {
+    height: 40px;
+    padding: 0 var(--space-2);
+  }
+  
+  .task-title {
+    font-size: 0.75rem;
+  }
+  
+  .task-meta {
+    display: none;
+  }
+  
+  .timeline-header {
+    height: 48px;
+  }
+  
+  .date-day {
+    font-size: 0.75rem;
+  }
+  
+  .date-weekday {
+    font-size: 0.625rem;
+  }
+  
+  .grid-lines {
+    top: 48px;
+  }
+  
+  .task-bars {
+    top: 48px;
+  }
+  
+  .task-bar-row {
+    height: 40px;
+    padding: 4px 0;
+  }
+  
+  .task-bar {
+    height: 28px;
+    padding: 0 var(--space-1);
+  }
+  
+  .bar-title {
+    font-size: 0.6875rem;
+  }
+  
+  .bar-avatars {
+    display: none;
+  }
+  
+  .no-date-badge {
+    left: 8px;
+    padding: 2px 6px;
+    font-size: 0.625rem;
+  }
+  
+  .resize-handle {
+    display: none;
+  }
+  
+  .timeline-legend {
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    flex-wrap: wrap;
+  }
+  
+  .legend-item {
+    font-size: 0.6875rem;
+    gap: var(--space-1);
+  }
+  
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .legend-divider {
+    display: none;
+  }
+  
+  .legend-hint {
+    width: 100%;
+    margin-left: 0;
+    margin-top: var(--space-1);
+    font-size: 0.6875rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .timeline-sidebar {
+    width: 100px;
+  }
+  
+  .sidebar-header {
+    padding: 0 var(--space-1);
+  }
+  
+  .sidebar-item {
+    padding: 0 var(--space-1);
+  }
+  
+  .task-title {
+    font-size: 0.6875rem;
+  }
+  
+  .timeline-toolbar {
+    padding: var(--space-2) var(--space-3);
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  
+  .zoom-controls {
+    order: 2;
+  }
+  
+  .view-options {
+    order: 1;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .view-options .btn {
+    flex: 1;
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 479px) {
+  .timeline-sidebar {
+    width: 80px;
+  }
+  
+  .sidebar-header {
+    font-size: 0.5rem;
+  }
+  
+  .task-title {
+    font-size: 0.625rem;
+    line-height: 1.2;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  
+  .date-day {
+    font-size: 0.6875rem;
+  }
+  
+  .date-weekday {
+    font-size: 0.5rem;
+  }
+  
+  .month-label {
+    font-size: 0.5rem;
+  }
 }
 </style>
