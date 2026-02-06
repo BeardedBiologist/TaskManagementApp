@@ -65,6 +65,27 @@ router.put('/me', authenticate, [
   }
 });
 
+// Get all users (for chat)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const { limit = 100, excludeSelf = true } = req.query;
+    
+    const query = {};
+    if (excludeSelf === 'true') {
+      query._id = { $ne: req.user._id };
+    }
+    
+    const users = await User.find(query)
+      .select('name email avatar')
+      .sort({ 'name.first': 1 })
+      .limit(parseInt(limit));
+    
+    res.json(users);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Search users
 router.get('/search', authenticate, async (req, res, next) => {
   try {

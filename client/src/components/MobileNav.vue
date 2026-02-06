@@ -7,7 +7,12 @@
       class="nav-item"
       :class="{ active: isActive(item.path) }"
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="item.icon"/>
+      <div class="nav-icon-wrapper">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="item.icon"/>
+        <span v-if="item.showBadge && unreadCount > 0" class="nav-badge">
+          {{ unreadCount > 9 ? '9+' : unreadCount }}
+        </span>
+      </div>
       <span>{{ item.label }}</span>
     </router-link>
     
@@ -80,17 +85,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useAuthStore } from '../stores/auth'
+import { useChatStore } from '../stores/chat'
 
 const route = useRoute()
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
 
 const showMenu = ref(false)
+const unreadCount = computed(() => chatStore.totalUnreadCount)
 
 const navItems = [
   { 
@@ -104,9 +112,10 @@ const navItems = [
     icon: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
   },
   { 
-    path: '/calendar', 
-    label: 'Calendar',
-    icon: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+    path: '/chat', 
+    label: 'Messages',
+    icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    showBadge: true
   },
   { 
     path: '/activity', 
@@ -319,6 +328,30 @@ function handleLogout() {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+
+.nav-icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--primary-500);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Transition */
