@@ -443,7 +443,7 @@ function formatDate(dateStr) {
 function openNote(note) {
   const projectId = note.project?._id || note.project
   if (projectId) {
-    router.push(`/projects/${projectId}/pages/${note._id}`)
+    router.push(`/projects/${projectId}/pages/${note._id}?from=notes`)
   }
 }
 

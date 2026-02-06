@@ -10,6 +10,14 @@
       <template v-else-if="pageStore.currentPage">
         <!-- Breadcrumbs -->
         <div class="breadcrumbs">
+          <router-link v-if="backLink" :to="backLink.to" class="back-link-crumb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="19" y1="12" x2="5" y2="12"/>
+              <polyline points="12 19 5 12 12 5"/>
+            </svg>
+            {{ backLink.label }}
+            <span class="crumb-separator">|</span>
+          </router-link>
           <template v-for="(crumb, index) in pageStore.breadcrumb" :key="crumb._id">
             <router-link 
               v-if="index < pageStore.breadcrumb.length - 1"
@@ -463,6 +471,17 @@ const templates = [
 const pageTasks = computed(() => {
   if (!pageStore.currentPage) return []
   return projectStore.tasks.filter(t => t.page === pageStore.currentPage._id)
+})
+
+const backLink = computed(() => {
+  const from = route.query.from
+  if (from === 'notes') {
+    return { to: '/notes', label: 'Back to Notes' }
+  }
+  if (from === 'tasks') {
+    return { to: '/tasks', label: 'Back to Tasks' }
+  }
+  return null
 })
 
 // Get tasks with due dates for calendar
@@ -1925,5 +1944,25 @@ async function duplicatePage() {
   .task-priority {
     display: none;
   }
+}
+/* Back Link */
+.back-link-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.back-link-crumb:hover {
+  color: var(--text-primary);
+}
+
+.back-link-crumb svg {
+  width: 16px;
+  height: 16px;
 }
 </style>

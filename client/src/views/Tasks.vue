@@ -473,7 +473,7 @@ function isOverdue(task) {
 function openTask(task) {
   const projectId = task.project?._id || task.project
   if (projectId) {
-    router.push(`/projects/${projectId}?task=${task._id}`)
+    router.push(`/projects/${projectId}?task=${task._id}&from=tasks`)
   }
 }
 
