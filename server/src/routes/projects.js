@@ -4,6 +4,7 @@ import Project from '../models/Project.js';
 import Workspace from '../models/Workspace.js';
 import Task from '../models/Task.js';
 import Activity from '../models/Activity.js';
+import Notification from '../models/Notification.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -227,6 +228,18 @@ router.post('/:id/members', authenticate, async (req, res, next) => {
       metadata: { role }
     });
     req.io.to(`project:${project._id}`).emit('activity', activity);
+
+    // Notify the new member (if they weren't the one adding themselves)
+    if (userId !== req.user._id.toString()) {
+      const adderName = `${req.user.name.first} ${req.user.name.last}`.trim();
+      await Notification.send(req.io, {
+        recipient: userId,
+        type: 'project-member-added',
+        message: `<strong>${adderName}</strong> added you to <strong>${project.name}</strong>`,
+        link: `/projects/${project._id}`,
+        data: { projectId: project._id.toString() }
+      });
+    }
 
     res.json(project);
   } catch (error) {

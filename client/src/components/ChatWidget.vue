@@ -51,6 +51,17 @@
                 {{ getParticipantName(currentConversation) }}
               </div>
             </div>
+            <button class="header-btn" @click="startVoiceCall" title="Voice call">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </button>
+            <button class="header-btn" @click="startVideoCall" title="Video call">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2"/>
+              </svg>
+            </button>
             <button class="header-btn" @click="closeWidget" title="Close">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"/>
@@ -210,11 +221,13 @@ import { storeToRefs } from 'pinia'
 import { useChatStore } from '../stores/chat'
 import { useAuthStore } from '../stores/auth'
 import { useSocketStore } from '../stores/socket'
+import { useCallStore } from '../stores/call'
 import api from '../utils/api'
 
 const chatStore = useChatStore()
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
+const callStore = useCallStore()
 
 const messagesContainer = ref(null)
 const newMessage = ref('')
@@ -326,6 +339,28 @@ function getParticipantName(conv) {
 
 function getInitials(first, last) {
   return `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase()
+}
+
+function getRemoteUserInfo(conv) {
+  const participant = conv.participants?.find(p => p._id !== authStore.user?._id)
+  if (!participant) return null
+  return {
+    _id: participant._id,
+    name: participant.name,
+    initials: `${participant.name?.first?.[0] || ''}${participant.name?.last?.[0] || ''}`.toUpperCase()
+  }
+}
+
+function startVoiceCall() {
+  if (!currentConversation.value) return
+  const userInfo = getRemoteUserInfo(currentConversation.value)
+  if (userInfo) callStore.startCall(userInfo._id, userInfo, 'audio')
+}
+
+function startVideoCall() {
+  if (!currentConversation.value) return
+  const userInfo = getRemoteUserInfo(currentConversation.value)
+  if (userInfo) callStore.startCall(userInfo._id, userInfo, 'video')
 }
 
 function formatTime(timestamp) {

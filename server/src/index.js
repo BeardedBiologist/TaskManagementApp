@@ -10,6 +10,8 @@ import { errorHandler } from './middleware/errorHandler.js';
 import jwt from 'jsonwebtoken';
 import Whiteboard from './models/Whiteboard.js';
 import Activity from './models/Activity.js';
+import Notification from './models/Notification.js';
+import Task from './models/Task.js';
 
 // Route imports
 import authRoutes from './routes/auth.js';
@@ -24,6 +26,7 @@ import activityRoutes from './routes/activities.js';
 import commentRoutes from './routes/comments.js';
 import templateRoutes from './routes/templates.js';
 import conversationRoutes from './routes/conversations.js';
+import notificationRoutes from './routes/notifications.js';
 
 dotenv.config();
 
@@ -65,6 +68,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Make io accessible to routes
 app.set('io', io);
@@ -434,6 +438,44 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ===== WEBRTC SIGNALING =====
+
+  socket.on('call-offer', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-offer', data);
+  });
+
+  socket.on('call-answer', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-answer', data);
+  });
+
+  socket.on('call-ice-candidate', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-ice-candidate', data);
+  });
+
+  socket.on('call-reject', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-reject', data);
+  });
+
+  socket.on('call-end', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-end', data);
+  });
+
+  socket.on('call-media-toggle', (data) => {
+    if (!data.to) return;
+    data.from = socket.userId;
+    io.to(`user:${data.to}`).emit('call-media-toggle', data);
+  });
+
   // ===== COMMENTS =====
   
   socket.on('comment-add', (data) => {
@@ -489,6 +531,57 @@ const PORT = process.env.PORT || 3000;
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  // Due-soon notification checker — runs every 30 minutes
+  const THIRTY_MINUTES = 30 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      const tasks = await Task.find({
+        dueDate: { $gte: now, $lte: in24h },
+        columnId: { $ne: 'done' },
+        isArchived: { $ne: true }
+      }).populate('assignees', 'name').populate('createdBy', 'name').populate('project', 'name');
+
+      for (const task of tasks) {
+        // Collect unique recipients: assignees + creator
+        const recipientIds = new Set();
+        (task.assignees || []).forEach(a => recipientIds.add(a._id.toString()));
+        if (task.createdBy) recipientIds.add(task.createdBy._id.toString());
+
+        for (const recipientId of recipientIds) {
+          // Deduplicate: skip if we already sent this notification in the last 24h
+          const existing = await Notification.findOne({
+            recipient: recipientId,
+            type: 'task-due-soon',
+            'data.taskId': task._id.toString(),
+            createdAt: { $gte: oneDayAgo }
+          });
+          if (existing) continue;
+
+          const link = task.project
+            ? `/projects/${task.project._id}?task=${task._id}`
+            : null;
+
+          await Notification.send(io, {
+            recipient: recipientId,
+            type: 'task-due-soon',
+            message: `<strong>${task.title}</strong> is due in less than 24 hours`,
+            link,
+            data: {
+              taskId: task._id.toString(),
+              projectId: task.project?._id?.toString() || null
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Due-soon checker error:', err.message);
+    }
+  }, THIRTY_MINUTES);
 });
 
 export { io };

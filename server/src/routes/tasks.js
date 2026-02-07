@@ -4,6 +4,7 @@ import Task from '../models/Task.js';
 import Project from '../models/Project.js';
 import Activity from '../models/Activity.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -253,6 +254,21 @@ router.post('/', authenticate, [
         targetName: task.title
       });
       req.io.to(`project:${taskProject}`).emit('activity', activity);
+
+      // Notify assignees about the new task
+      const creatorId = req.user._id.toString();
+      for (const assignee of (task.assignees || [])) {
+        const assigneeId = (assignee._id || assignee).toString();
+        if (assigneeId === creatorId) continue;
+        const creatorName = `${req.user.name.first} ${req.user.name.last}`.trim();
+        await Notification.send(req.io, {
+          recipient: assigneeId,
+          type: 'task-assigned',
+          message: `<strong>${creatorName}</strong> assigned you to <strong>${task.title}</strong>`,
+          link: `/projects/${taskProject}?task=${task._id}`,
+          data: { taskId: task._id.toString(), projectId: taskProject.toString() }
+        });
+      }
     }
 
     res.status(201).json(taskPayload);
@@ -420,6 +436,27 @@ router.put('/:id', authenticate, async (req, res, next) => {
         metadata: { changes: enrichedChanges }
       });
       req.io.to(`project:${task.project}`).emit('activity', activity);
+
+      // Notify newly-added assignees
+      const assigneeChange = changes.find(c => c.field === 'Assignees');
+      if (assigneeChange) {
+        const originalAssigneeIds = new Set((originalSnapshot.assignees || []).map(a => a.toString()));
+        const updatedAssigneeIds = (updatedSnapshot.assignees || []).map(a => a.toString());
+        const newAssigneeIds = updatedAssigneeIds.filter(id => !originalAssigneeIds.has(id));
+        const updaterId = req.user._id.toString();
+        const updaterName = `${req.user.name.first} ${req.user.name.last}`.trim();
+
+        for (const assigneeId of newAssigneeIds) {
+          if (assigneeId === updaterId) continue;
+          await Notification.send(req.io, {
+            recipient: assigneeId,
+            type: 'task-assigned',
+            message: `<strong>${updaterName}</strong> assigned you to <strong>${task.title}</strong>`,
+            link: `/projects/${task.project}?task=${task._id}`,
+            data: { taskId: task._id.toString(), projectId: task.project.toString() }
+          });
+        }
+      }
     }
 
     res.json(updatedPayload);
@@ -529,6 +566,46 @@ router.post('/:id/comments', authenticate, [
       metadata: { commentId: newComment._id }
     });
     req.io.to(`project:${project._id}`).emit('activity', activity);
+
+    // Notify task creator + all assignees (except the commenter)
+    const commenterId = req.user._id.toString();
+    const commenterName = `${req.user.name.first} ${req.user.name.last}`.trim();
+    const recipientSet = new Set();
+    if (task.createdBy) recipientSet.add(task.createdBy.toString());
+    (task.assignees || []).forEach(a => {
+      const id = (a._id || a).toString();
+      recipientSet.add(id);
+    });
+    recipientSet.delete(commenterId);
+
+    for (const recipientId of recipientSet) {
+      await Notification.send(req.io, {
+        recipient: recipientId,
+        type: 'task-comment',
+        message: `<strong>${commenterName}</strong> commented on <strong>${task.title}</strong>`,
+        link: `/projects/${project._id}?task=${task._id}`,
+        data: { taskId: task._id.toString(), projectId: project._id.toString(), commentId: newComment._id.toString() }
+      });
+    }
+
+    // Parse @mentions from comment content and notify mentioned users
+    const mentionRegex = /@(\w+)/g;
+    const mentionMatches = [...content.matchAll(mentionRegex)].map(m => m[1]);
+    if (mentionMatches.length > 0) {
+      const regexArray = mentionMatches.map(name => new RegExp(`^${name}$`, 'i'));
+      const mentionedUsers = await User.find({ 'name.first': { $in: regexArray } });
+      for (const mentioned of mentionedUsers) {
+        const mentionedId = mentioned._id.toString();
+        if (mentionedId === commenterId || recipientSet.has(mentionedId)) continue;
+        await Notification.send(req.io, {
+          recipient: mentionedId,
+          type: 'mention',
+          message: `<strong>${commenterName}</strong> mentioned you in a comment on <strong>${task.title}</strong>`,
+          link: `/projects/${project._id}?task=${task._id}`,
+          data: { taskId: task._id.toString(), projectId: project._id.toString(), commentId: newComment._id.toString() }
+        });
+      }
+    }
 
     res.status(201).json(newComment);
   } catch (error) {

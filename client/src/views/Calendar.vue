@@ -127,6 +127,7 @@
         v-if="selectedTask"
         :task="selectedTask"
         :columns="getTaskColumns(selectedTask)"
+        :members="getTaskMembers(selectedTask)"
         @close="selectedTask = null"
         @update="updateTask"
         @delete="deleteTask"
@@ -320,6 +321,14 @@ function getTaskColumns(task) {
   ]
 }
 
+function getTaskMembers(task) {
+  const projectId = task.project?._id || task.project
+  if (!projectId) return []
+  const project = projectStore.projects.find(p => p._id === projectId)
+  if (!project?.members) return []
+  return project.members.map(m => m.user).filter(u => u && u._id)
+}
+
 function dateKeyFromLocalDate(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -383,11 +392,14 @@ function openTask(task) {
 }
 
 async function updateTask(taskId, updates) {
-  await projectStore.updateTask(taskId, updates)
-  // Update in our local list too
+  const data = await projectStore.updateTask(taskId, updates)
+  // Update in our local list too with the full server response
   const taskIndex = allTasks.value.findIndex(t => t._id === taskId)
   if (taskIndex !== -1) {
-    allTasks.value[taskIndex] = { ...allTasks.value[taskIndex], ...updates }
+    allTasks.value[taskIndex] = data || { ...allTasks.value[taskIndex], ...updates }
+  }
+  if (selectedTask.value?._id === taskId) {
+    selectedTask.value = allTasks.value[taskIndex] || selectedTask.value
   }
 }
 

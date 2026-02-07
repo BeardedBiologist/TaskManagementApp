@@ -1,6 +1,8 @@
 import express from 'express';
 import Comment from '../models/Comment.js';
 import Project from '../models/Project.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -27,10 +29,17 @@ router.post('/', authenticate, async (req, res, next) => {
   try {
     const { targetType, targetId, content, position, projectId, workspaceId } = req.body;
     
-    // Extract mentions from content (@username)
+    // Extract mentions from content (@username) and resolve to user IDs
     const mentionRegex = /@(\w+)/g;
-    const mentions = [...content.matchAll(mentionRegex)].map(m => m[1]);
-    
+    const mentionNames = [...content.matchAll(mentionRegex)].map(m => m[1]);
+    let resolvedMentionIds = [];
+    let resolvedMentionUsers = [];
+    if (mentionNames.length > 0) {
+      const regexArray = mentionNames.map(name => new RegExp(`^${name}$`, 'i'));
+      resolvedMentionUsers = await User.find({ 'name.first': { $in: regexArray } });
+      resolvedMentionIds = resolvedMentionUsers.map(u => u._id);
+    }
+
     const comment = await Comment.create({
       targetType,
       targetId,
@@ -39,15 +48,15 @@ router.post('/', authenticate, async (req, res, next) => {
       author: req.user._id,
       project: projectId,
       workspace: workspaceId,
-      mentions: [] // TODO: Resolve usernames to user IDs
+      mentions: resolvedMentionIds
     });
-    
+
     await comment.populate('author', 'name email avatar');
-    
+
     // Emit to room
     const roomName = `${targetType}:${targetId}`;
     req.io.to(roomName).emit('comment-added', comment);
-    
+
     // Also emit to project for activity feed
     req.io.to(`project:${projectId}`).emit('activity', {
       type: `${targetType}.comment.added`,
@@ -57,7 +66,22 @@ router.post('/', authenticate, async (req, res, next) => {
       targetId,
       metadata: { commentId: comment._id }
     });
-    
+
+    // Send mention notifications
+    const commenterId = req.user._id.toString();
+    const commenterName = `${req.user.name.first} ${req.user.name.last}`.trim();
+    for (const mentioned of resolvedMentionUsers) {
+      const mentionedId = mentioned._id.toString();
+      if (mentionedId === commenterId) continue;
+      await Notification.send(req.io, {
+        recipient: mentionedId,
+        type: 'mention',
+        message: `<strong>${commenterName}</strong> mentioned you in a comment`,
+        link: projectId ? `/projects/${projectId}` : null,
+        data: { commentId: comment._id.toString(), targetType, targetId, projectId: projectId || null }
+      });
+    }
+
     res.status(201).json(comment);
   } catch (error) {
     next(error);

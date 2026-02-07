@@ -355,6 +355,7 @@
           v-if="selectedTask"
           :task="selectedTask"
           :columns="columns"
+          :members="projectMembers"
           @close="closeTaskPanel"
           @update="updateTask"
           @delete="deleteTask"
@@ -505,6 +506,12 @@ const availableWorkspaceMembers = computed(() => {
       const id = m.user?._id || m.user
       return id && !projectMemberIds.has(id)
     })
+})
+
+const projectMembers = computed(() => {
+  const project = projectStore.currentProject
+  if (!project?.members) return []
+  return project.members.map(m => m.user).filter(u => u && u._id)
 })
 
 // Drag and drop state
@@ -934,6 +941,10 @@ async function createTask() {
 
 async function updateTask(taskId, updates) {
   await projectStore.updateTask(taskId, updates)
+  if (selectedTask.value?._id === taskId) {
+    const updated = projectStore.tasks.find(t => t._id === taskId)
+    if (updated) selectedTask.value = updated
+  }
 }
 
 async function deleteTask(taskId) {

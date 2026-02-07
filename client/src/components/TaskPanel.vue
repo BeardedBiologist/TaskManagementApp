@@ -118,13 +118,34 @@
             <span>{{ assignee.name.first }} {{ assignee.name.last }}</span>
             <button class="remove-btn" @click="removeAssignee(assignee._id)">×</button>
           </div>
-          <button class="add-assignee-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add
-          </button>
+          <div class="dropdown-wrapper">
+            <button class="add-assignee-btn" @click.stop="showAssigneeDropdown = !showAssigneeDropdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Add
+            </button>
+            <div v-if="showAssigneeDropdown" class="assignee-dropdown" @click.stop>
+              <input
+                v-model="assigneeSearch"
+                placeholder="Search members..."
+                class="form-input dropdown-search"
+              />
+              <div class="dropdown-list">
+                <div
+                  v-for="member in availableMembers"
+                  :key="member._id"
+                  class="dropdown-item"
+                  @click="addAssignee(member)"
+                >
+                  <div class="avatar avatar-sm">{{ getInitials(member.name.first, member.name.last) }}</div>
+                  <span>{{ member.name.first }} {{ member.name.last }}</span>
+                </div>
+                <div v-if="availableMembers.length === 0" class="dropdown-empty">No members available</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -302,7 +323,28 @@
             {{ label.name }}
             <button @click="removeLabel(label.name)">×</button>
           </span>
-          <button class="add-label-btn">+ Add label</button>
+          <div class="dropdown-wrapper">
+            <button class="add-label-btn" @click.stop="showLabelPopover = !showLabelPopover">+ Add label</button>
+            <div v-if="showLabelPopover" class="label-popover" @click.stop>
+              <input
+                v-model="newLabelName"
+                placeholder="Label name"
+                class="form-input dropdown-search"
+                @keyup.enter="addLabel"
+              />
+              <div class="color-swatches">
+                <button
+                  v-for="color in labelColors"
+                  :key="color"
+                  class="swatch"
+                  :class="{ active: newLabelColor === color }"
+                  :style="{ background: color }"
+                  @click="newLabelColor = color"
+                />
+              </div>
+              <button class="btn btn-primary btn-sm" @click="addLabel" :disabled="!newLabelName.trim()">Add</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -371,7 +413,8 @@ import api from '../utils/api'
 
 const props = defineProps({
   task: { type: Object, required: true },
-  columns: { type: Array, default: () => [] }
+  columns: { type: Array, default: () => [] },
+  members: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['close', 'update', 'delete'])
@@ -384,6 +427,12 @@ const editingDescription = ref(false)
 const addingSubtask = ref(false)
 const addingComment = ref(false)
 const isDraggingFile = ref(false)
+const showAssigneeDropdown = ref(false)
+const assigneeSearch = ref('')
+const showLabelPopover = ref(false)
+const newLabelName = ref('')
+const newLabelColor = ref('#8b5cf6')
+const labelColors = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e', '#ec4899', '#6366f1', '#64748b']
 
 // Values
 const editedTitle = ref(props.task.title)
@@ -413,6 +462,17 @@ const subtaskProgress = computed(() => {
   return Math.round((completedSubtasks.value / props.task.subtasks.length) * 100)
 })
 
+const availableMembers = computed(() => {
+  const assignedIds = new Set((props.task.assignees || []).map(a => a._id))
+  return props.members
+    .filter(m => !assignedIds.has(m._id))
+    .filter(m => {
+      if (!assigneeSearch.value) return true
+      const search = assigneeSearch.value.toLowerCase()
+      return m.name.first.toLowerCase().includes(search) || m.name.last.toLowerCase().includes(search)
+    })
+})
+
 const formattedTime = computed(() => {
   const hours = Math.floor(timerSeconds.value / 3600)
   const minutes = Math.floor((timerSeconds.value % 3600) / 60)
@@ -420,7 +480,13 @@ const formattedTime = computed(() => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 })
 
+function closeDropdowns() {
+  showAssigneeDropdown.value = false
+  showLabelPopover.value = false
+}
+
 onMounted(() => {
+  document.addEventListener('click', closeDropdowns)
   // Restore timer state if it was running
   if (props.task.timeTracking?.isRunning && props.task.timeTracking?.startedAt) {
     const elapsed = Math.floor((Date.now() - new Date(props.task.timeTracking.startedAt)) / 1000)
@@ -430,6 +496,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('click', closeDropdowns)
   stopTimer()
 })
 
@@ -541,6 +608,13 @@ function removeAssignee(assigneeId) {
   emit('update', props.task._id, { assignees })
 }
 
+function addAssignee(member) {
+  const assignees = [...props.task.assignees.map(a => a._id), member._id]
+  emit('update', props.task._id, { assignees })
+  showAssigneeDropdown.value = false
+  assigneeSearch.value = ''
+}
+
 function startAddingSubtask() {
   addingSubtask.value = true
   newSubtask.value = ''
@@ -576,6 +650,17 @@ function removeSubtask(index) {
 function removeLabel(labelName) {
   const labels = props.task.labels.filter(l => l.name !== labelName)
   emit('update', props.task._id, { labels })
+}
+
+function addLabel() {
+  if (!newLabelName.value.trim()) return
+  const duplicate = (props.task.labels || []).some(l => l.name.toLowerCase() === newLabelName.value.trim().toLowerCase())
+  if (duplicate) return
+  const labels = [...(props.task.labels || []), { name: newLabelName.value.trim(), color: newLabelColor.value }]
+  emit('update', props.task._id, { labels })
+  newLabelName.value = ''
+  newLabelColor.value = '#8b5cf6'
+  showLabelPopover.value = false
 }
 
 async function addComment() {
@@ -976,6 +1061,83 @@ function confirmDelete() {
 .add-assignee-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* Dropdown Wrappers */
+.dropdown-wrapper {
+  position: relative;
+}
+
+.assignee-dropdown,
+.label-popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  width: 240px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  padding: var(--space-3);
+}
+
+.dropdown-search {
+  padding: var(--space-2) var(--space-3) !important;
+  font-size: 0.8125rem !important;
+  margin-bottom: var(--space-2);
+}
+
+.dropdown-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.dropdown-empty {
+  padding: var(--space-3);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+}
+
+.color-swatches {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.swatch:hover {
+  transform: scale(1.15);
+}
+
+.swatch.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--bg-secondary);
 }
 
 /* Description */
