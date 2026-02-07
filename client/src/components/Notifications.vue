@@ -13,7 +13,7 @@
     </button>
 
     <Transition name="dropdown">
-      <div v-if="isOpen" class="notifications-dropdown">
+      <div v-if="isOpen" class="notifications-dropdown" :class="'drop-' + props.dropDirection">
         <div class="dropdown-header">
           <h3>Notifications</h3>
           <button v-if="notificationStore.notifications.length" class="btn btn-ghost btn-sm" @click="markAllRead">
@@ -94,6 +94,10 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDistanceToNow } from 'date-fns'
 import { useNotificationStore } from '../stores/notification'
+
+const props = defineProps({
+  dropDirection: { type: String, default: 'up' }
+})
 
 const router = useRouter()
 const notificationStore = useNotificationStore()
@@ -193,8 +197,6 @@ function formatTime(date) {
 
 .notifications-dropdown {
   position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
   width: 380px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
@@ -202,6 +204,16 @@ function formatTime(date) {
   box-shadow: var(--shadow-lg);
   z-index: 100;
   overflow: hidden;
+}
+
+.notifications-dropdown.drop-up {
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+}
+
+.notifications-dropdown.drop-down {
+  top: calc(100% + var(--space-2));
+  right: 0;
 }
 
 .dropdown-header {
