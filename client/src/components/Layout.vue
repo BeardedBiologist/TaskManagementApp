@@ -18,7 +18,7 @@
         <span class="brand-text">Orbit</span>
       </router-link>
       <div class="mobile-actions">
-        <Notifications />
+        <Notifications drop-direction="down" />
       </div>
     </header>
 
