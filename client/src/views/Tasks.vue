@@ -138,6 +138,11 @@
         </div>
       </div>
 
+      <!-- Tasks Section Header -->
+      <div v-if="!loading && (allTasks.length > 0 || hasActiveFilters)" class="tasks-section-header">
+        <h2>Your Tasks</h2>
+      </div>
+
       <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
@@ -174,10 +179,10 @@
               <div class="task-status">
                 <button
                   class="status-checkbox"
-                  :class="task.columnId"
+                  :class="getTaskStatus(task)"
                   @click.stop="toggleTaskStatus(task)"
                 >
-                  <svg v-if="task.columnId === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <svg v-if="getTaskStatus(task) === 'done'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                     <polyline points="20 6 9 17 4 12"/>
                   </svg>
                 </button>
@@ -352,7 +357,7 @@ const filteredTasks = computed(() => {
 
   // Status filter
   if (filterStatus.value) {
-    tasks = tasks.filter(t => t.columnId === filterStatus.value)
+    tasks = tasks.filter(t => getTaskStatus(t) === filterStatus.value)
   }
 
   // Priority filter
@@ -387,7 +392,7 @@ const filteredTasks = computed(() => {
 
 const tasksByStatus = computed(() => {
   return allTasks.value.reduce((acc, task) => {
-    const status = task.columnId || 'todo'
+    const status = getTaskStatus(task)
     acc[status] = (acc[status] || 0) + 1
     return acc
   }, {})
@@ -396,7 +401,7 @@ const tasksByStatus = computed(() => {
 const overdueCount = computed(() => {
   const today = new Date().toISOString().split('T')[0]
   return allTasks.value.filter(t => {
-    return t.dueDate && t.dueDate < today && t.columnId !== 'done'
+    return t.dueDate && t.dueDate < today && getTaskStatus(t) !== 'done'
   }).length
 })
 
@@ -451,6 +456,25 @@ function getInitials(first, last) {
   return `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase()
 }
 
+function getTaskStatus(task) {
+  if (!task.columnId) return 'todo'
+  // If it's already a standard status ID
+  if (['todo', 'in-progress', 'review', 'done'].includes(task.columnId)) return task.columnId
+  
+  const projectId = task.project?._id || task.project
+  const project = projectStore.projects.find(p => p._id === projectId)
+  if (!project || !project.columns) return 'todo' // Default fallback
+  
+  const column = project.columns.find(c => c.id === task.columnId)
+  if (!column) return 'todo'
+  
+  const title = column.title.toLowerCase()
+  if (title.includes('done') || title.includes('complete') || title.includes('closed')) return 'done'
+  if (title.includes('progress') || title.includes('doing') || title.includes('wip')) return 'in-progress'
+  if (title.includes('review') || title.includes('qa') || title.includes('testing')) return 'review'
+  return 'todo'
+}
+
 function formatDate(dateKey) {
   if (!dateKey) return ''
   const date = new Date(dateKey)
@@ -465,7 +489,7 @@ function formatDate(dateKey) {
 }
 
 function isOverdue(task) {
-  if (!task.dueDate || task.columnId === 'done') return false
+  if (!task.dueDate || getTaskStatus(task) === 'done') return false
   const today = new Date().toISOString().split('T')[0]
   return task.dueDate < today
 }
@@ -478,10 +502,26 @@ function openTask(task) {
 }
 
 async function toggleTaskStatus(task) {
-  const newStatus = task.columnId === 'done' ? 'todo' : 'done'
+  const currentStatus = getTaskStatus(task)
+  // Find "done" column in project
+  const projectId = task.project?._id || task.project
+  const project = projectStore.projects.find(p => p._id === projectId)
+  if (!project) return
+
+  let newColumnId
+  
+  if (currentStatus === 'done') {
+    // Move to first column (usually todo)
+    newColumnId = project.columns[0]?.id || 'todo'
+  } else {
+    // Move to done column
+    const doneCol = project.columns.find(c => c.id === 'done' || c.title.toLowerCase().includes('done') || c.title.toLowerCase().includes('complete'))
+    newColumnId = doneCol?.id || 'done'
+  }
+  
   try {
-    await api.put(`/tasks/${task._id}`, { columnId: newStatus })
-    task.columnId = newStatus
+    await api.put(`/tasks/${task._id}`, { columnId: newColumnId })
+    task.columnId = newColumnId
   } catch (err) {
     console.error('Failed to update task:', err)
   }
@@ -675,6 +715,19 @@ function clearFilters() {
   color: var(--text-secondary);
   margin-bottom: var(--space-4);
   max-width: 400px;
+}
+
+/* Tasks Section Header */
+.tasks-section-header {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tasks-section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 /* Tasks List */
@@ -877,26 +930,27 @@ function clearFilters() {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-5);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  transition: all 0.15s ease;
 }
 
 .stat-card:hover {
-  border-color: var(--border-default);
+  transform: translateY(-2px);
+  background: var(--bg-secondary);
   box-shadow: var(--shadow-sm);
 }
 
 .stat-card.has-overdue {
-  border-color: var(--accent-rose-alpha-30, rgba(244, 63, 94, 0.3));
   background: var(--accent-rose-alpha-05, rgba(244, 63, 94, 0.05));
+  border-color: var(--accent-rose-alpha-30, rgba(244, 63, 94, 0.3));
 }
 
 .stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -904,32 +958,32 @@ function clearFilters() {
 }
 
 .stat-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .stat-icon.total {
-  background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
+  background: rgba(139, 92, 246, 0.1);
   color: var(--primary-500);
 }
 
 .stat-icon.todo {
-  background: var(--accent-cyan-alpha-15, rgba(6, 182, 212, 0.15));
+  background: rgba(6, 182, 212, 0.1);
   color: var(--accent-cyan);
 }
 
 .stat-icon.in-progress {
-  background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15));
+  background: rgba(245, 158, 11, 0.1);
   color: var(--accent-amber);
 }
 
 .stat-icon.done {
-  background: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15));
+  background: rgba(16, 185, 129, 0.1);
   color: var(--accent-emerald);
 }
 
 .stat-icon.overdue {
-  background: var(--accent-rose-alpha-15, rgba(244, 63, 94, 0.15));
+  background: rgba(244, 63, 94, 0.1);
   color: var(--accent-rose);
 }
 
@@ -941,10 +995,10 @@ function clearFilters() {
 }
 
 .stat-value {
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .stat-card.has-overdue .stat-value {
@@ -952,8 +1006,8 @@ function clearFilters() {
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 

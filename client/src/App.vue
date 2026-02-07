@@ -1,6 +1,9 @@
 <template>
   <router-view />
   <CommandPalette ref="commandPaletteRef" />
+  <IncomingCallModal />
+  <CallOverlay />
+  <CallEndedToast />
 </template>
 
 <script setup>
@@ -9,12 +12,19 @@ import { useAuthStore } from './stores/auth'
 import { useSocketStore } from './stores/socket'
 import { useThemeStore } from './stores/theme'
 import { useChatStore } from './stores/chat'
+import { useCallStore } from './stores/call'
+import { useNotificationStore } from './stores/notification'
 import CommandPalette from './components/CommandPalette.vue'
+import IncomingCallModal from './components/IncomingCallModal.vue'
+import CallOverlay from './components/CallOverlay.vue'
+import CallEndedToast from './components/CallEndedToast.vue'
 
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
 const themeStore = useThemeStore()
 const chatStore = useChatStore()
+const callStore = useCallStore()
+const notificationStore = useNotificationStore()
 const commandPaletteRef = ref(null)
 
 onMounted(() => {
@@ -41,19 +51,28 @@ watch(() => authStore.isAuthenticated, (isAuth) => {
     setupChatListeners()
   } else {
     chatStore.removeSocketListeners()
+    callStore.removeCallListeners()
+    notificationStore.removeSocketListeners()
+    notificationStore.$reset()
   }
 })
 
 function setupChatListeners() {
   chatStore.setupSocketListeners()
   chatStore.fetchConversations()
-  
+  callStore.setupCallListeners()
+  notificationStore.setupSocketListeners()
+  notificationStore.fetchNotifications()
+
   // Set up a reconnect handler
   if (socketStore.socket) {
     socketStore.off('connect') // Helper to prevent duplicates just in case
     socketStore.on('connect', () => {
       console.log('Socket reconnected, rejoining chat rooms')
       chatStore.setupSocketListeners()
+      callStore.setupCallListeners()
+      notificationStore.setupSocketListeners()
+      notificationStore.fetchNotifications()
     })
   }
 }

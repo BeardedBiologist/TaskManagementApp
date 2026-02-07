@@ -1,48 +1,64 @@
 <template>
   <div class="notifications-container">
-    <button 
+    <button
       class="notification-bell"
-      :class="{ 'has-unread': unreadCount > 0 }"
+      :class="{ 'has-unread': notificationStore.unreadCount > 0 }"
       @click="toggleOpen"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
       </svg>
-      <span v-if="unreadCount > 0" class="badge">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+      <span v-if="notificationStore.unreadCount > 0" class="badge">{{ notificationStore.unreadCount > 9 ? '9+' : notificationStore.unreadCount }}</span>
     </button>
 
     <Transition name="dropdown">
       <div v-if="isOpen" class="notifications-dropdown">
         <div class="dropdown-header">
           <h3>Notifications</h3>
-          <button v-if="notifications.length" class="btn btn-ghost btn-sm" @click="markAllRead">
+          <button v-if="notificationStore.notifications.length" class="btn btn-ghost btn-sm" @click="markAllRead">
             Mark all read
           </button>
         </div>
 
         <div class="notifications-list">
-          <div 
-            v-for="notification in notifications" 
-            :key="notification.id"
+          <div
+            v-for="notification in notificationStore.notifications"
+            :key="notification._id"
             class="notification-item"
             :class="{ unread: !notification.read }"
             @click="handleClick(notification)"
           >
             <div class="notification-icon" :class="notification.type">
-              <svg v-if="notification.type === 'assignment'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- task-assigned -->
+              <svg v-if="notification.type === 'task-assigned'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
-              <svg v-else-if="notification.type === 'due'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- task-due-soon -->
+              <svg v-else-if="notification.type === 'task-due-soon'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
+              <!-- mention -->
               <svg v-else-if="notification.type === 'mention'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="4"/>
+                <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>
+              </svg>
+              <!-- task-comment -->
+              <svg v-else-if="notification.type === 'task-comment'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
               </svg>
+              <!-- project-member-added -->
+              <svg v-else-if="notification.type === 'project-member-added'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="8.5" cy="7" r="4"/>
+                <line x1="20" y1="8" x2="20" y2="14"/>
+                <line x1="23" y1="11" x2="17" y2="11"/>
+              </svg>
+              <!-- fallback bell -->
               <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -52,7 +68,7 @@
               <p class="notification-text" v-html="notification.message"/>
               <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
             </div>
-            <button class="dismiss-btn" @click.stop="dismiss(notification.id)">
+            <button class="dismiss-btn" @click.stop="dismiss(notification._id)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -60,7 +76,7 @@
             </button>
           </div>
 
-          <div v-if="notifications.length === 0" class="empty-notifications">
+          <div v-if="notificationStore.notifications.length === 0" class="empty-notifications">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -74,83 +90,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDistanceToNow } from 'date-fns'
-import { useSocketStore } from '../stores/socket'
+import { useNotificationStore } from '../stores/notification'
 
 const router = useRouter()
-const socketStore = useSocketStore()
+const notificationStore = useNotificationStore()
 
 const isOpen = ref(false)
-const notifications = ref([])
-
-const unreadCount = computed(() => {
-  return notifications.value.filter(n => !n.read).length
-})
 
 onMounted(() => {
-  loadNotifications()
-  setupSocketListeners()
   document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
-
-function loadNotifications() {
-  // Load from localStorage for demo
-  const saved = localStorage.getItem('notifications')
-  if (saved) {
-    notifications.value = JSON.parse(saved)
-  }
-}
-
-function saveNotifications() {
-  localStorage.setItem('notifications', JSON.stringify(notifications.value))
-}
-
-function setupSocketListeners() {
-  // Listen for real-time notifications
-  socketStore.on('task-assigned', (data) => {
-    addNotification({
-      type: 'assignment',
-      message: `<strong>${data.assigner}</strong> assigned you to <strong>${data.taskTitle}</strong>`,
-      link: `/projects/${data.projectId}?task=${data.taskId}`,
-      read: false
-    })
-  })
-
-  socketStore.on('task-due-soon', (data) => {
-    addNotification({
-      type: 'due',
-      message: `<strong>${data.taskTitle}</strong> is due ${data.dueDate}`,
-      link: `/projects/${data.projectId}?task=${data.taskId}`,
-      read: false
-    })
-  })
-
-  socketStore.on('mention', (data) => {
-    addNotification({
-      type: 'mention',
-      message: `<strong>${data.mentioner}</strong> mentioned you in <strong>${data.taskTitle}</strong>`,
-      link: `/projects/${data.projectId}?task=${data.taskId}`,
-      read: false
-    })
-  })
-}
-
-function addNotification(notification) {
-  notifications.value.unshift({
-    id: Date.now().toString(),
-    createdAt: new Date().toISOString(),
-    ...notification
-  })
-  // Keep only last 50
-  notifications.value = notifications.value.slice(0, 50)
-  saveNotifications()
-}
 
 function toggleOpen() {
   isOpen.value = !isOpen.value
@@ -163,23 +119,20 @@ function handleClickOutside(e) {
 }
 
 function handleClick(notification) {
-  notification.read = true
-  saveNotifications()
+  notificationStore.markAsRead(notification._id)
   isOpen.value = false
-  
+
   if (notification.link) {
     router.push(notification.link)
   }
 }
 
 function markAllRead() {
-  notifications.value.forEach(n => n.read = true)
-  saveNotifications()
+  notificationStore.markAllRead()
 }
 
 function dismiss(id) {
-  notifications.value = notifications.value.filter(n => n.id !== id)
-  saveNotifications()
+  notificationStore.dismiss(id)
 }
 
 function formatTime(date) {
@@ -310,12 +263,12 @@ function formatTime(date) {
   height: 18px;
 }
 
-.notification-icon.assignment {
+.notification-icon.task-assigned {
   background: var(--primary-500-alpha-15, rgba(139, 92, 246, 0.15));
   color: var(--primary-400);
 }
 
-.notification-icon.due {
+.notification-icon.task-due-soon {
   background: var(--accent-amber-alpha-15, rgba(245, 158, 11, 0.15));
   color: var(--accent-amber);
 }
@@ -325,9 +278,14 @@ function formatTime(date) {
   color: var(--accent-cyan);
 }
 
-.notification-icon.system {
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
+.notification-icon.task-comment {
+  background: var(--accent-emerald-alpha-15, rgba(16, 185, 129, 0.15));
+  color: var(--accent-emerald);
+}
+
+.notification-icon.project-member-added {
+  background: var(--accent-pink-alpha-15, rgba(236, 72, 153, 0.15));
+  color: var(--accent-pink);
 }
 
 .notification-content {
