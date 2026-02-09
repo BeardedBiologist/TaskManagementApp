@@ -207,6 +207,7 @@ router.post('/', authenticate, [
         return res.status(404).json({ message: 'Page not found' });
       }
       taskPage = pageId;
+      taskProject = page.project;
       taskWorkspace = page.workspace;
     } else if (!workspace) {
       return res.status(400).json({ message: 'Either projectId, pageId, or workspace is required' });

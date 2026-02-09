@@ -190,6 +190,7 @@ watch(
   () => props.initialBlocks,
   (nextBlocks) => {
     if (!Array.isArray(nextBlocks)) return
+    if (slashMenuVisible.value) return
     const isSame = nextBlocks.length === blocks.value.length && nextBlocks.every((block, index) => {
       const current = blocks.value[index]
       if (!current) return false
@@ -593,7 +594,7 @@ function isInRange(index) {
 .editor-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .block-wrapper {

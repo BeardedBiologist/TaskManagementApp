@@ -125,14 +125,13 @@
                 </div>
               </div>
 
-              <!-- Page Icon -->
-              <div class="page-icon-container">
-                <button 
+              <!-- Page Icon (only when set) -->
+              <div v-if="pageStore.currentPage.icon" class="page-icon-container">
+                <button
                   class="page-icon-btn"
                   @click="showIconPicker = true"
-                  :class="{ 'empty': !pageStore.currentPage.icon }"
                 >
-                  {{ pageStore.currentPage.icon || '➕' }}
+                  {{ pageStore.currentPage.icon }}
                 </button>
               </div>
 
@@ -757,12 +756,10 @@ async function createTaskFromPage() {
   isCreatingTask.value = true
   
   try {
-    const projectId = route.params.id
     const pageId = route.params.pageId
-    
+
     await projectStore.createTask({
       title: `Task from "${pageStore.currentPage.title || 'Untitled'}"`,
-      projectId,
       pageId,
       columnId: 'todo'
     })
@@ -1053,6 +1050,13 @@ async function duplicatePage() {
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.page-content:hover .page-meta-actions,
+.page-meta-actions:focus-within {
+  opacity: 1;
 }
 
 .meta-btn {
@@ -1149,10 +1153,6 @@ async function duplicatePage() {
   border-color: var(--border-hover);
 }
 
-.page-icon-btn.empty {
-  font-size: 20px;
-  color: var(--text-muted);
-}
 
 /* Icon Picker Modal */
 .icon-picker-modal {
@@ -1264,7 +1264,7 @@ async function duplicatePage() {
   border: none;
   outline: none;
   color: var(--text-primary);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-4);
   padding: 0;
   line-height: 1.1;
   letter-spacing: -0.01em;

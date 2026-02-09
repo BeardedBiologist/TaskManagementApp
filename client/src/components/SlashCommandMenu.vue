@@ -1,13 +1,10 @@
 <template>
   <Teleport to="body">
-    <div 
-      class="slash-menu-overlay" 
-      @click="$emit('close')"
-    >
-      <div 
+      <div
+        ref="menuRef"
         class="slash-menu"
         :style="menuStyle"
-        @click.stop
+        @mousedown.prevent
       >
         <div class="menu-header">Basic blocks</div>
         <div class="menu-items">
@@ -30,7 +27,6 @@
           </button>
         </div>
       </div>
-    </div>
   </Teleport>
 </template>
 
@@ -44,6 +40,7 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'close'])
 
+const menuRef = ref(null)
 const selectedIndex = ref(0)
 
 const items = [
@@ -187,12 +184,20 @@ function onKeydown(e) {
   }
 }
 
+function onClickOutside(e) {
+  if (menuRef.value && !menuRef.value.contains(e.target)) {
+    emit('close')
+  }
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  document.addEventListener('mousedown', onClickOutside)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('mousedown', onClickOutside)
 })
 
 watch(() => props.filter, () => {
@@ -202,14 +207,9 @@ watch(() => props.filter, () => {
 </script>
 
 <style scoped>
-.slash-menu-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-}
-
 .slash-menu {
   width: 320px;
+  z-index: 1000;
   max-height: 400px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
